@@ -10,7 +10,7 @@ ESP32集成了**4个SPI外设**
 
 SPI0和SPI1通过总线仲裁器共享一条信号总线，用于在模组内部访问FLASH（SoC FLASH），不会对用户开放
 
-SPI2和SPI3是**通用SPI控制器**，有时也被称为HSPI和VSPI。它们拥有独立的信号总线，每条总线都有三条片选（CS）信号，也就是说每个控制器都能驱动最多3个SPI从器件。这两个SPI控制器对用户开放
+SPI2和SPI3是**通用SPI控制器**，有时也被称为HSPI和VSPI，这里的HSPI和VSPI没有实际区别，只是为了标识两个SPI，他们都既可以作为主机使用也可以作为从机使用。SPI控制器拥有独立的信号总线，每条总线都有三条片选（CS）信号，也就是说每个控制器都能驱动最多3个SPI从器件。这两个SPI控制器对用户开放
 
 相关概念参考SPI协议，以下内容默认读者学习过SPI、QSPI基础知识。
 
@@ -179,6 +179,8 @@ ESP32的驱动提供了两种传输方式：
 
 1. 设定并初始化GPIO复用为SPI
 
+调用spi_bus_initialize()来初始化SPI总线，使用spi_bus_config_t结构体设置GPIO引脚
+
 **注意不使用的信号线要设置为-1**
 
    ```c
@@ -198,6 +200,8 @@ spi_host_device_t={
    ```
 
 2. 使用spi_bus_add_device()设置SPI控制器设备
+
+该步骤的目的是通知FreeRTOS驱动有一个SPI设备连接到了总线上
 
 ```c
 esp_err_t spi_bus_add_device(spi_host_device_t host,//SPI设备号

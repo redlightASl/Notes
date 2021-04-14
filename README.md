@@ -4,6 +4,12 @@
 
 【包括未完成的笔记和大量弃坑项目的存档】
 
-**防止丢失**
+以后所有笔记都会在该项目下记录以**防止丢失**
 
 不定期更新
+
+# Personal Notes Repository
+
+All my notes will be upload to this remote repository,including a lot of "cookie" and archives of abandoned projects
+
+Update irregularly!

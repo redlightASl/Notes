@@ -418,9 +418,9 @@ int main()
 	print("Hello World\n\r");
 	print("Successfully ran Hello World application");
 
-	ConfigPtr=XGpioPs_LookupConfig(XPAR_XGPIOPS_0_DEVICE_ID);// 获取器件ID
+	ConfigPtr=XGpioPs_LookupConfig(XPAR_XGPIOPS_0_DEVICE_ID);// 根据预设的器件获取器件ID与地址
     status=XGpioPs_CfgInitialize(&Gpios,ConfigPtr,ConfigPtr->BaseAddr);// 配置GPIO初始化
-	if(status!=XST_SUCCESS)//检查是否配置成功
+	if(status!=XST_SUCCESS)// 检查是否配置成功
     	return XST_FAILURE;
 
 	XGpioPs_SetDirectionPin(&Gpios,MIOLED1,output);// 接LED输出

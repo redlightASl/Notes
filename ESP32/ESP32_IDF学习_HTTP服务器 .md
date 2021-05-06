@@ -397,6 +397,3 @@ void stop_webserver(httpd_handle_t server)
     }
 }
 ```
-
-
-

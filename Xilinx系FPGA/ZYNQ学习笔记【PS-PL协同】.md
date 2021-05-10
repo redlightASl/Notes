@@ -1,3 +1,10 @@
+这里的示例程序在上一部分的基础上实现更多功能：
+
+1. 使用UART通过串口向上位机发送Helloworld字符串
+2. 使用MIO实现按键点亮LED功能
+3. 使用EMIO驱动一个LED闪烁
+4. 使用AXI总线驱动GPIO，实现LED以另一频率闪烁
+
 # EMIO
 
 EMIO就是Extendable MIO，当PS部分的MIO对应片上引脚不够用时，就可以使用EMIO引出PL部分的bank引脚到片内

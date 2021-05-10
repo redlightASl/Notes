@@ -11,7 +11,7 @@ ESP系列提供了实现TCP/IP协议栈的库函数，`#include <esp_netif.h>`�
 * 大多数情况下，应用程序不需要直接调用组件的API，而是从默认的网络事件处理函数中调用
 * 不兼容idf4.1以下使用的TCP/IP适配器相关函数，需修改代码进行迁移
 
-ESP-NETIF结构如下
+ESP-NETIF结构如下（摘自官方文档）
 
 ```
                  |          (A) USER CODE                 |

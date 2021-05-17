@@ -20,19 +20,61 @@
 
 ## 通用定时器组1
 
-通用定时器由TIM2、TIM3、TIM4、TIM5组成，其中TIM2、5拥有32位自动重载计数器，精度更高；TIM3、4拥有16位自动重载计数器，该计数器由可编程预分频器驱动
+通用定时器由TIM2、TIM3、TIM4、TIM5组成，其中TIM2、5拥有32位自动重载计数器，精度更高；TIM3、4拥有16位自动重载计数器，该计数器由可编程预分频器驱动，**预分频器为16位，分频系数在1到65536之间**
 
 支持以下功能
 
 * 通过输入捕获测量输入信号脉冲宽度
-* 生成输出比较和PWM波
-* 产生DMA请求
+* 可使用外部信号控制定时器
+* 可实现多个定时器互连的同步电路
+* 四个独立的输入捕获、输出比较和PWM输出、单脉冲输出通道
+* 产生DMA请求（触发源包括定时器溢出、初始化、输入捕获、输出比较、触发事件等）
+* 支持驱动编码器和霍尔传感器
+* 外部时钟触发输入或逐周期电流管理
 
 所有这些定时器互相完全独立，不共享任何资源，可以让任意两个通用定时器同步工作
 
+![image-20210516170041918](F:\Git_repository\Notes\STM32\STM32F4深入学习_定时器.assets\image-20210516170041918.png)
+
+### 时基单元
+
+**定时器的时基单元实际上就是一套用于稳定输出时钟的计数器**，定时器的其他高级功能都是在计数器的基础上实现的
+
+这就是为什么定时器中断、输出PWM、检测输入信号等操作都需要预先设定时基单元
+
+时基单元本身的时钟来自于RCC的TIMxCLK，由APB总线提供；不过也可以设定成由片外电路独立输入，也就是所谓的TIMxETR；甚至也可以用其他定时器触发，这就是“从模式-定时器级联”
+
+时基单元包括：
+
+* **计数器**寄存器 (TIMx_CNT)
+* **预分频器**寄存器 (TIMx_PSC)
+* **自动重载**寄存器 (TIMx_ARR)
+
+计数器、自动重载寄存器和预分频器寄存器可通过软件进行读写。即使在计数器运行时也可执行读写操作。
+
+自动重载寄存器是预装载的。对自动重载寄存器执行写入或读取操作时会访问预装载寄存器。预装载寄存器的内容既可以直接传送到影子寄存器，也可以在每次发生更新事件 (UEV) 时传送到影子寄存器，这取决于 TIMx_CR1 寄存器中的自动重载预装载使能位 (ARPE)。当 计数器达到上溢值（或者在递减计数时达到下溢值）并且 TIMx_CR1 寄存器中的 UDIS 位为 0 时，将发送更新事件。该更新事件也可由软件产生
+
+计数器由预分频器输出 CK_CNT 提供时钟，仅当 TIMx_CR1 寄存器中的计数器启动位 (CEN) 置 1 时，才会启动计数器（有关计数器使能的更多详细信息，另请参见从模式控制器的相关 说明）。
+请注意，真正的计数器使能信号 CNT_EN 在 CEN 置 1 的一个时钟周期后被置 1。
+
+预分频器可对计数器时钟频率进行分频，分频系数介于 1 到 65536 之间。该预分频器基于 16 位/32 位寄存器（TIMx_PSC 寄存器）所控制的 16 位计数器。由于该控制寄存器具有缓 冲功能，因此预分频器可实现实时更改。而新的预分频比将在下一更新事件发生时被采用
+
+![image-20210516170857412](F:\Git_repository\Notes\STM32\STM32F4深入学习_定时器.assets\image-20210516170857412.png)
+
+![image-20210516170948206](F:\Git_repository\Notes\STM32\STM32F4深入学习_定时器.assets\image-20210516170948206.png)
+
+### 定时器计数模式
 
 
 
+
+
+在递增计数模式下，计数器从 0 计数到自动重载值（TIMx_ARR 寄存器的内容），然后重新 从 0 开始计数并生成计数器上溢事件。
+每次发生计数器上溢时会生成更新事件，或将 TIMx_EGR 寄存器中的 UG 位置 1（通过软件 或使用从模式控制器）也可以生成更新事件。
+通过软件将 TIMx_CR1 寄存器中的 UDIS 位置 1 可禁止 UEV 事件。这可避免向预装载寄存 器写入新值时更新影子寄存器。在 UDIS 位写入 0 之前不会产生任何更新事件。不过，计数 器和预分频器计数器都会重新从 0 开始计数（而预分频比保持不变）。此外，如果 TIMx_CR1 寄存器中的 URS 位（更新请求选择）已置 1，则将 UG 位置 1 会生成更新事件 UEV，但不会将 UIF 标志置 1（因此，不会发送任何中断或 DMA 请求）。这样一来，如果 在发生捕获事件时将计数器清零，将不会同时产生更新中断和捕获中断。
+发生更新事件时，将更新所有寄存器且将更新标志（TIMx_SR 寄存器中的 UIF 位）置 1（取 决于 URS 位）：
+● 预分频器的缓冲区中将重新装载预装载值（TIMx_PSC 寄存器的内容）
+● 自动重载影子寄存器将以预装载值进行更新
 
 
 
@@ -466,131 +508,33 @@ void TIM_TimeBaseInit(TIM_TypeDef* TIMx, TIM_TimeBaseInitTypeDef* TIM_TimeBaseIn
 
 ST提供了有关输出捕获与输出比较的库函数
 
+输出捕获实际上就是对定时器的输出信号进行监测，从而实现PWM等操作
+
+使用方法如下：
+
+> 1. 使用RCC_APBxPeriphClockCmd(RCC_APBxPeriph_TIMx, ENABLE)函数开启定时器时钟
+> 2. 配置GPIO为复用模式并配置定时器到GPIO的复用选项
+> 3. 使用下面的参数配置定时器时基单元初始化结构体设置
+>    * 自动重装载值 = 0xFFFF
+>    * 分频系数 = 0x0000
+>    * 计数模式：向上计数
+>    * 时钟分频：TIM_CKD_DIV1
+> 4. 使用下面的参数配置定时器输出捕获初始化结构体设置
+>    * 输出比较模式：TIM_OCMode
+>    * 输出状态：TIM_OutputState
+>    * 定时器脉冲值：TIM_Pulse
+>    * 定时器输出比较极性：根据输出比较所需电平有效性选择
+> 5. 使用TIM_OCxInit(TIMx, &TIM_OCInitStruct)函数使用合适的配置来设置所需的通道
+> 6. 使用TIM_Cmd(ENABLE)使能定时器计数器
+> 7. 如果要使用PWM输出，需要额外使能输出捕获预装载寄存器，使用函数TIM_OCxPreloadConfig(TIMx, TIM_OCPreload_ENABLE)
+> 8. 可以在输出捕获的基础上使用定时器中断或DMA，只要使用对应库函数TIM_ITConfig(TIMx, TIM_IT_CCx)或TIM_DMA_Cmd(TIMx, TIM_DMA_CCx)提前进行配置即可
+
+输出捕获的最简单用法就是PWM，但是除了这个功能，他还能实现更多更复杂的功能，相关库函数如下：
+
 * 将每个通道独立配置为输出比较
-* 选择输出比较模式
-* 选择每个通道的极性
-* 设置/获取输出捕获/比较寄存器的值
-* 选择输出比较快速模式（Output Compare Fast mode）
-* 选择输出比较强制模式（Output Compare Forced mode）
-* 输出比较-预装载模式
-* 清空输出比较参考值
-* 选择OCREF清空信号
-* 使能/失能捕获/比较通道
-
-### TIM输入捕获管理
-
-ST也提供了定时器输入捕获的库函数
-
-* 单独配置每个通道位输入捕获模式
-* 可配置通道1/2处于PWM输入模式，用于获取外部脉冲/测量外部信号频率（如编码器输入、遥控信号输入等）
-* 设置输入捕获预分频器
-* 获取捕获/比较值
-
-### 高级定时器（TIM1、TIM8）的特殊控制库函数
-
-STM32F4中具有两个高级定时器，ST也为它们提供了库函数
-
-* 配置断点输入（Break input）、死区时间、锁定等级、OSSI、OSSR状态、AOE（自动输入使能）
-* 使能/失能定时器外设主输出
-* 选择通讯事件
-* 设置/重置捕获比较预装载控制位
-
-### 定时器中断、DMS与标志位管理
-
-STM32中的一些定时器是可以触发定时器中断、DMA的，ST也提供了管理库函数
-
-* 使能/失能中断源
-* 获取标志状态
-* 清空标志位/挂起标志位
-* 使能/失能DMA请求
-* 配置DMA突发传输模式（burst mode）
-* 选择捕获比较DMA请求
-
-### 定时器时钟管理
-
-这里是关于定时器时钟源的管理库函数
-
-* 选择内部/外部时钟输入
-* 选择外部时钟模式为ETR（模式1/模式2）、TIx或ITRx
-
-### 定时器同步管理
-
-STM32中部分定时器可以实现同步功能，这里是相关的同步管理库函数
-
-* 选择输入触发信号
-* 选择输出触发信号
-* 选择主从模式
-* 当作为外部触发使用时进行ETR配置
-
-### 定时器特殊结构管理
-
-定时器也可以作为特殊设备的接口使用，ST也提供了这样用法的库函数
-
-* 解码器接口配置
-* 选择Hall Sensor
-
-### 定时器特殊重映射配置
-
-一些定时器能够被重映射为特殊的配置端口，这里是该功能的管理库函数
-
-
-
-
-
-
 
 ```c
-        ##### TIM Driver: how to use it in Output Compare Mode #####
- ===============================================================================
-    [..] 
-    To use the Timer in Output Compare mode, the following steps are mandatory:
-       
-      (#) Enable TIM clock using RCC_APBxPeriphClockCmd(RCC_APBxPeriph_TIMx, ENABLE) 
-          function
-       
-      (#) Configure the TIM pins by configuring the corresponding GPIO pins
-       
-      (#) Configure the Time base unit as described in the first part of this driver, 
-        (++) if needed, else the Timer will run with the default configuration:
-            Autoreload value = 0xFFFF
-        (++) Prescaler value = 0x0000
-        (++) Counter mode = Up counting
-        (++) Clock Division = TIM_CKD_DIV1
-          
-      (#) Fill the TIM_OCInitStruct with the desired parameters including:
-        (++) The TIM Output Compare mode: TIM_OCMode
-        (++) TIM Output State: TIM_OutputState
-        (++) TIM Pulse value: TIM_Pulse
-        (++) TIM Output Compare Polarity : TIM_OCPolarity
-       
-      (#) Call TIM_OCxInit(TIMx, &TIM_OCInitStruct) to configure the desired 
-          channel with the corresponding configuration
-       
-      (#) Call the TIM_Cmd(ENABLE) function to enable the TIM counter.
-       
-      -@- All other functions can be used separately to modify, if needed,
-          a specific feature of the Timer. 
-          
-      -@- In case of PWM mode, this function is mandatory:
-          TIM_OCxPreloadConfig(TIMx, TIM_OCPreload_ENABLE); 
-              
-      -@- If the corresponding interrupt or DMA request are needed, the user should:
-        (+@) Enable the NVIC (or the DMA) to use the TIM interrupts (or DMA requests). 
-        (+@) Enable the corresponding interrupt (or DMA request) using the function 
-             TIM_ITConfig(TIMx, TIM_IT_CCx) (or TIM_DMA_Cmd(TIMx, TIM_DMA_CCx))   
-
-@endverbatim
-  * @{
-  */
-
-/**
-  * @brief  Initializes the TIMx Channel1 according to the specified parameters in
-  *         the TIM_OCInitStruct.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_OCInitStruct: pointer to a TIM_OCInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
+//初始化通道1输入捕获
 void TIM_OC1Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct)
 {
   uint16_t tmpccmrx = 0, tmpccer = 0, tmpcr2 = 0;
@@ -663,239 +607,9 @@ void TIM_OC1Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct)
   TIMx->CCER = tmpccer;
 }
 
-/**
-  * @brief  Initializes the TIMx Channel2 according to the specified parameters 
-  *         in the TIM_OCInitStruct.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_OCInitStruct: pointer to a TIM_OCInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
-void TIM_OC2Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct)
-{
-  uint16_t tmpccmrx = 0, tmpccer = 0, tmpcr2 = 0;
-   
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx)); 
-  assert_param(IS_TIM_OC_MODE(TIM_OCInitStruct->TIM_OCMode));
-  assert_param(IS_TIM_OUTPUT_STATE(TIM_OCInitStruct->TIM_OutputState));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCInitStruct->TIM_OCPolarity));   
+//初始化通道2、通道3、通道4的库函数与初始化通道1库函数不能说一模一样，只能说别无二致，所以在此不列出
 
-  /* Disable the Channel 2: Reset the CC2E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC2E;
-  
-  /* Get the TIMx CCER register value */  
-  tmpccer = TIMx->CCER;
-  /* Get the TIMx CR2 register value */
-  tmpcr2 =  TIMx->CR2;
-  
-  /* Get the TIMx CCMR1 register value */
-  tmpccmrx = TIMx->CCMR1;
-    
-  /* Reset the Output Compare mode and Capture/Compare selection Bits */
-  tmpccmrx &= (uint16_t)~TIM_CCMR1_OC2M;
-  tmpccmrx &= (uint16_t)~TIM_CCMR1_CC2S;
-  
-  /* Select the Output Compare Mode */
-  tmpccmrx |= (uint16_t)(TIM_OCInitStruct->TIM_OCMode << 8);
-  
-  /* Reset the Output Polarity level */
-  tmpccer &= (uint16_t)~TIM_CCER_CC2P;
-  /* Set the Output Compare Polarity */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OCPolarity << 4);
-  
-  /* Set the Output State */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OutputState << 4);
-    
-  if((TIMx == TIM1) || (TIMx == TIM8))
-  {
-    assert_param(IS_TIM_OUTPUTN_STATE(TIM_OCInitStruct->TIM_OutputNState));
-    assert_param(IS_TIM_OCN_POLARITY(TIM_OCInitStruct->TIM_OCNPolarity));
-    assert_param(IS_TIM_OCNIDLE_STATE(TIM_OCInitStruct->TIM_OCNIdleState));
-    assert_param(IS_TIM_OCIDLE_STATE(TIM_OCInitStruct->TIM_OCIdleState));
-    
-    /* Reset the Output N Polarity level */
-    tmpccer &= (uint16_t)~TIM_CCER_CC2NP;
-    /* Set the Output N Polarity */
-    tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OCNPolarity << 4);
-    /* Reset the Output N State */
-    tmpccer &= (uint16_t)~TIM_CCER_CC2NE;
-    
-    /* Set the Output N State */
-    tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OutputNState << 4);
-    /* Reset the Output Compare and Output Compare N IDLE State */
-    tmpcr2 &= (uint16_t)~TIM_CR2_OIS2;
-    tmpcr2 &= (uint16_t)~TIM_CR2_OIS2N;
-    /* Set the Output Idle state */
-    tmpcr2 |= (uint16_t)(TIM_OCInitStruct->TIM_OCIdleState << 2);
-    /* Set the Output N Idle state */
-    tmpcr2 |= (uint16_t)(TIM_OCInitStruct->TIM_OCNIdleState << 2);
-  }
-  /* Write to TIMx CR2 */
-  TIMx->CR2 = tmpcr2;
-  
-  /* Write to TIMx CCMR1 */
-  TIMx->CCMR1 = tmpccmrx;
-  
-  /* Set the Capture Compare Register value */
-  TIMx->CCR2 = TIM_OCInitStruct->TIM_Pulse;
-  
-  /* Write to TIMx CCER */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Initializes the TIMx Channel3 according to the specified parameters
-  *         in the TIM_OCInitStruct.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCInitStruct: pointer to a TIM_OCInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
-void TIM_OC3Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct)
-{
-  uint16_t tmpccmrx = 0, tmpccer = 0, tmpcr2 = 0;
-   
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx)); 
-  assert_param(IS_TIM_OC_MODE(TIM_OCInitStruct->TIM_OCMode));
-  assert_param(IS_TIM_OUTPUT_STATE(TIM_OCInitStruct->TIM_OutputState));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCInitStruct->TIM_OCPolarity));   
-
-  /* Disable the Channel 3: Reset the CC2E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC3E;
-  
-  /* Get the TIMx CCER register value */
-  tmpccer = TIMx->CCER;
-  /* Get the TIMx CR2 register value */
-  tmpcr2 =  TIMx->CR2;
-  
-  /* Get the TIMx CCMR2 register value */
-  tmpccmrx = TIMx->CCMR2;
-    
-  /* Reset the Output Compare mode and Capture/Compare selection Bits */
-  tmpccmrx &= (uint16_t)~TIM_CCMR2_OC3M;
-  tmpccmrx &= (uint16_t)~TIM_CCMR2_CC3S;  
-  /* Select the Output Compare Mode */
-  tmpccmrx |= TIM_OCInitStruct->TIM_OCMode;
-  
-  /* Reset the Output Polarity level */
-  tmpccer &= (uint16_t)~TIM_CCER_CC3P;
-  /* Set the Output Compare Polarity */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OCPolarity << 8);
-  
-  /* Set the Output State */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OutputState << 8);
-    
-  if((TIMx == TIM1) || (TIMx == TIM8))
-  {
-    assert_param(IS_TIM_OUTPUTN_STATE(TIM_OCInitStruct->TIM_OutputNState));
-    assert_param(IS_TIM_OCN_POLARITY(TIM_OCInitStruct->TIM_OCNPolarity));
-    assert_param(IS_TIM_OCNIDLE_STATE(TIM_OCInitStruct->TIM_OCNIdleState));
-    assert_param(IS_TIM_OCIDLE_STATE(TIM_OCInitStruct->TIM_OCIdleState));
-    
-    /* Reset the Output N Polarity level */
-    tmpccer &= (uint16_t)~TIM_CCER_CC3NP;
-    /* Set the Output N Polarity */
-    tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OCNPolarity << 8);
-    /* Reset the Output N State */
-    tmpccer &= (uint16_t)~TIM_CCER_CC3NE;
-    
-    /* Set the Output N State */
-    tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OutputNState << 8);
-    /* Reset the Output Compare and Output Compare N IDLE State */
-    tmpcr2 &= (uint16_t)~TIM_CR2_OIS3;
-    tmpcr2 &= (uint16_t)~TIM_CR2_OIS3N;
-    /* Set the Output Idle state */
-    tmpcr2 |= (uint16_t)(TIM_OCInitStruct->TIM_OCIdleState << 4);
-    /* Set the Output N Idle state */
-    tmpcr2 |= (uint16_t)(TIM_OCInitStruct->TIM_OCNIdleState << 4);
-  }
-  /* Write to TIMx CR2 */
-  TIMx->CR2 = tmpcr2;
-  
-  /* Write to TIMx CCMR2 */
-  TIMx->CCMR2 = tmpccmrx;
-  
-  /* Set the Capture Compare Register value */
-  TIMx->CCR3 = TIM_OCInitStruct->TIM_Pulse;
-  
-  /* Write to TIMx CCER */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Initializes the TIMx Channel4 according to the specified parameters
-  *         in the TIM_OCInitStruct.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCInitStruct: pointer to a TIM_OCInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
-void TIM_OC4Init(TIM_TypeDef* TIMx, TIM_OCInitTypeDef* TIM_OCInitStruct)
-{
-  uint16_t tmpccmrx = 0, tmpccer = 0, tmpcr2 = 0;
-   
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx)); 
-  assert_param(IS_TIM_OC_MODE(TIM_OCInitStruct->TIM_OCMode));
-  assert_param(IS_TIM_OUTPUT_STATE(TIM_OCInitStruct->TIM_OutputState));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCInitStruct->TIM_OCPolarity));   
-
-  /* Disable the Channel 4: Reset the CC4E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC4E;
-  
-  /* Get the TIMx CCER register value */
-  tmpccer = TIMx->CCER;
-  /* Get the TIMx CR2 register value */
-  tmpcr2 =  TIMx->CR2;
-  
-  /* Get the TIMx CCMR2 register value */
-  tmpccmrx = TIMx->CCMR2;
-    
-  /* Reset the Output Compare mode and Capture/Compare selection Bits */
-  tmpccmrx &= (uint16_t)~TIM_CCMR2_OC4M;
-  tmpccmrx &= (uint16_t)~TIM_CCMR2_CC4S;
-  
-  /* Select the Output Compare Mode */
-  tmpccmrx |= (uint16_t)(TIM_OCInitStruct->TIM_OCMode << 8);
-  
-  /* Reset the Output Polarity level */
-  tmpccer &= (uint16_t)~TIM_CCER_CC4P;
-  /* Set the Output Compare Polarity */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OCPolarity << 12);
-  
-  /* Set the Output State */
-  tmpccer |= (uint16_t)(TIM_OCInitStruct->TIM_OutputState << 12);
-  
-  if((TIMx == TIM1) || (TIMx == TIM8))
-  {
-    assert_param(IS_TIM_OCIDLE_STATE(TIM_OCInitStruct->TIM_OCIdleState));
-    /* Reset the Output Compare IDLE State */
-    tmpcr2 &=(uint16_t) ~TIM_CR2_OIS4;
-    /* Set the Output Idle state */
-    tmpcr2 |= (uint16_t)(TIM_OCInitStruct->TIM_OCIdleState << 6);
-  }
-  /* Write to TIMx CR2 */
-  TIMx->CR2 = tmpcr2;
-  
-  /* Write to TIMx CCMR2 */  
-  TIMx->CCMR2 = tmpccmrx;
-    
-  /* Set the Capture Compare Register value */
-  TIMx->CCR4 = TIM_OCInitStruct->TIM_Pulse;
-  
-  /* Write to TIMx CCER */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Fills each TIM_OCInitStruct member with its default value.
-  * @param  TIM_OCInitStruct: pointer to a TIM_OCInitTypeDef structure which will
-  *         be initialized.
-  * @retval None
-  */
+//使用默认设置初始化输入捕获初始化结构体
 void TIM_OCStructInit(TIM_OCInitTypeDef* TIM_OCInitStruct)
 {
   /* Set the default configuration */
@@ -909,29 +623,12 @@ void TIM_OCStructInit(TIM_OCInitTypeDef* TIM_OCInitStruct)
   TIM_OCInitStruct->TIM_OCNIdleState = TIM_OCNIdleState_Reset;
 }
 
-/**
-  * @brief  Selects the TIM Output Compare Mode.
-  * @note   This function disables the selected channel before changing the Output
-  *         Compare Mode. If needed, user has to enable this channel using
-  *         TIM_CCxCmd() and TIM_CCxNCmd() functions.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_Channel: specifies the TIM Channel
-  *          This parameter can be one of the following values:
-  *            @arg TIM_Channel_1: TIM Channel 1
-  *            @arg TIM_Channel_2: TIM Channel 2
-  *            @arg TIM_Channel_3: TIM Channel 3
-  *            @arg TIM_Channel_4: TIM Channel 4
-  * @param  TIM_OCMode: specifies the TIM Output Compare Mode.
-  *           This parameter can be one of the following values:
-  *            @arg TIM_OCMode_Timing
-  *            @arg TIM_OCMode_Active
-  *            @arg TIM_OCMode_Toggle
-  *            @arg TIM_OCMode_PWM1
-  *            @arg TIM_OCMode_PWM2
-  *            @arg TIM_ForcedAction_Active
-  *            @arg TIM_ForcedAction_InActive
-  * @retval None
-  */
+```
+
+* 选择输出比较模式
+
+```c
+//选择输出比较的通道、使用定时器x、输出比较的模式
 void TIM_SelectOCxM(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_OCMode)
 {
   uint32_t tmp = 0;
@@ -971,13 +668,66 @@ void TIM_SelectOCxM(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_OCMode
     *(__IO uint32_t *) tmp |= (uint16_t)(TIM_OCMode << 8);
   }
 }
+/*
+可以使用如下模式：
+定时 TIM_OCMode_Timing
+启动 TIM_OCMode_Active
+翻转 TIM_OCMode_Toggle
+PWM模式1 TIM_OCMode_PWM1
+PWM模式2 TIM_OCMode_PWM2
+强制启动 TIM_ForcedAction_Active
+强制停止 TIM_ForcedAction_InActive
+*/
+```
 
-/**
-  * @brief  Sets the TIMx Capture Compare1 Register value
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  Compare1: specifies the Capture Compare1 register new value.
-  * @retval None
-  */
+* 选择每个通道的极性
+
+```c
+//设置正极性
+void TIM_OC1PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity)
+{
+  uint16_t tmpccer = 0;
+
+  /* Check the parameters */
+  assert_param(IS_TIM_LIST1_PERIPH(TIMx));
+  assert_param(IS_TIM_OC_POLARITY(TIM_OCPolarity));
+
+  tmpccer = TIMx->CCER;
+
+  /* Set or Reset the CC1P Bit */
+  tmpccer &= (uint16_t)(~TIM_CCER_CC1P);
+  tmpccer |= TIM_OCPolarity;
+
+  /* Write to TIMx CCER register */
+  TIMx->CCER = tmpccer;
+}
+
+//设置负极性
+void TIM_OC1NPolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCNPolarity)
+{
+  uint16_t tmpccer = 0;
+  /* Check the parameters */
+  assert_param(IS_TIM_LIST4_PERIPH(TIMx));
+  assert_param(IS_TIM_OCN_POLARITY(TIM_OCNPolarity));
+   
+  tmpccer = TIMx->CCER;
+
+  /* Set or Reset the CC1NP Bit */
+  tmpccer &= (uint16_t)~TIM_CCER_CC1NP;
+  tmpccer |= TIM_OCNPolarity;
+
+  /* Write to TIMx CCER register */
+  TIMx->CCER = tmpccer;
+}
+
+//两个库函数都有4个不同通道的设置，在此仅列出通道1
+```
+
+* 设置/获取输出捕获/比较寄存器的值
+
+```c
+//设置输出比较寄存器1、2、3、4的值
+//每个输出比较寄存器对应一个通道
 void TIM_SetCompare1(TIM_TypeDef* TIMx, uint32_t Compare1)
 {
   /* Check the parameters */
@@ -987,13 +737,6 @@ void TIM_SetCompare1(TIM_TypeDef* TIMx, uint32_t Compare1)
   TIMx->CCR1 = Compare1;
 }
 
-/**
-  * @brief  Sets the TIMx Capture Compare2 Register value
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  Compare2: specifies the Capture Compare2 register new value.
-  * @retval None
-  */
 void TIM_SetCompare2(TIM_TypeDef* TIMx, uint32_t Compare2)
 {
   /* Check the parameters */
@@ -1003,45 +746,9 @@ void TIM_SetCompare2(TIM_TypeDef* TIMx, uint32_t Compare2)
   TIMx->CCR2 = Compare2;
 }
 
-/**
-  * @brief  Sets the TIMx Capture Compare3 Register value
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  Compare3: specifies the Capture Compare3 register new value.
-  * @retval None
-  */
-void TIM_SetCompare3(TIM_TypeDef* TIMx, uint32_t Compare3)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
+//3、4的库函数和1、2大同小异，在此不列出
 
-  /* Set the Capture Compare3 Register value */
-  TIMx->CCR3 = Compare3;
-}
-
-/**
-  * @brief  Sets the TIMx Capture Compare4 Register value
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  Compare4: specifies the Capture Compare4 register new value.
-  * @retval None
-  */
-void TIM_SetCompare4(TIM_TypeDef* TIMx, uint32_t Compare4)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-
-  /* Set the Capture Compare4 Register value */
-  TIMx->CCR4 = Compare4;
-}
-
-/**
-  * @brief  Forces the TIMx output 1 waveform to active or inactive level.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_ForcedAction: specifies the forced Action to be set to the output waveform.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ForcedAction_Active: Force active level on OC1REF
-  *            @arg TIM_ForcedAction_InActive: Force inactive level on OC1REF.
-  * @retval None
-  */
+//设置输出捕获寄存器1、2、3、4的值，2、3、4的设置库函数不列出
 void TIM_ForcedOC1Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction)
 {
   uint16_t tmpccmr1 = 0;
@@ -1061,101 +768,7 @@ void TIM_ForcedOC1Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction)
   TIMx->CCMR1 = tmpccmr1;
 }
 
-/**
-  * @brief  Forces the TIMx output 2 waveform to active or inactive level.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_ForcedAction: specifies the forced Action to be set to the output waveform.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ForcedAction_Active: Force active level on OC2REF
-  *            @arg TIM_ForcedAction_InActive: Force inactive level on OC2REF.
-  * @retval None
-  */
-void TIM_ForcedOC2Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction)
-{
-  uint16_t tmpccmr1 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_FORCED_ACTION(TIM_ForcedAction));
-  tmpccmr1 = TIMx->CCMR1;
-
-  /* Reset the OC2M Bits */
-  tmpccmr1 &= (uint16_t)~TIM_CCMR1_OC2M;
-
-  /* Configure The Forced output Mode */
-  tmpccmr1 |= (uint16_t)(TIM_ForcedAction << 8);
-
-  /* Write to TIMx CCMR1 register */
-  TIMx->CCMR1 = tmpccmr1;
-}
-
-/**
-  * @brief  Forces the TIMx output 3 waveform to active or inactive level.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ForcedAction: specifies the forced Action to be set to the output waveform.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ForcedAction_Active: Force active level on OC3REF
-  *            @arg TIM_ForcedAction_InActive: Force inactive level on OC3REF.
-  * @retval None
-  */
-void TIM_ForcedOC3Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_FORCED_ACTION(TIM_ForcedAction));
-
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC1M Bits */
-  tmpccmr2 &= (uint16_t)~TIM_CCMR2_OC3M;
-
-  /* Configure The Forced output Mode */
-  tmpccmr2 |= TIM_ForcedAction;
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Forces the TIMx output 4 waveform to active or inactive level.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ForcedAction: specifies the forced Action to be set to the output waveform.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ForcedAction_Active: Force active level on OC4REF
-  *            @arg TIM_ForcedAction_InActive: Force inactive level on OC4REF.
-  * @retval None
-  */
-void TIM_ForcedOC4Config(TIM_TypeDef* TIMx, uint16_t TIM_ForcedAction)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_FORCED_ACTION(TIM_ForcedAction));
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC2M Bits */
-  tmpccmr2 &= (uint16_t)~TIM_CCMR2_OC4M;
-
-  /* Configure The Forced output Mode */
-  tmpccmr2 |= (uint16_t)(TIM_ForcedAction << 8);
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Enables or disables the TIMx peripheral Preload register on CCR1.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_OCPreload: new state of the TIMx peripheral Preload register
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPreload_Enable
-  *            @arg TIM_OCPreload_Disable
-  * @retval None
-  */
+//设置定时器输出捕获预装载寄存器的值（同样是4个通道）
 void TIM_OC1PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload)
 {
   uint16_t tmpccmr1 = 0;
@@ -1175,104 +788,12 @@ void TIM_OC1PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload)
   /* Write to TIMx CCMR1 register */
   TIMx->CCMR1 = tmpccmr1;
 }
+```
 
-/**
-  * @brief  Enables or disables the TIMx peripheral Preload register on CCR2.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_OCPreload: new state of the TIMx peripheral Preload register
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPreload_Enable
-  *            @arg TIM_OCPreload_Disable
-  * @retval None
-  */
-void TIM_OC2PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload)
-{
-  uint16_t tmpccmr1 = 0;
+* 选择输出比较快速模式（Output Compare Fast mode）
 
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_OCPRELOAD_STATE(TIM_OCPreload));
-
-  tmpccmr1 = TIMx->CCMR1;
-
-  /* Reset the OC2PE Bit */
-  tmpccmr1 &= (uint16_t)(~TIM_CCMR1_OC2PE);
-
-  /* Enable or Disable the Output Compare Preload feature */
-  tmpccmr1 |= (uint16_t)(TIM_OCPreload << 8);
-
-  /* Write to TIMx CCMR1 register */
-  TIMx->CCMR1 = tmpccmr1;
-}
-
-/**
-  * @brief  Enables or disables the TIMx peripheral Preload register on CCR3.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCPreload: new state of the TIMx peripheral Preload register
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPreload_Enable
-  *            @arg TIM_OCPreload_Disable
-  * @retval None
-  */
-void TIM_OC3PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCPRELOAD_STATE(TIM_OCPreload));
-
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC3PE Bit */
-  tmpccmr2 &= (uint16_t)(~TIM_CCMR2_OC3PE);
-
-  /* Enable or Disable the Output Compare Preload feature */
-  tmpccmr2 |= TIM_OCPreload;
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Enables or disables the TIMx peripheral Preload register on CCR4.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCPreload: new state of the TIMx peripheral Preload register
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPreload_Enable
-  *            @arg TIM_OCPreload_Disable
-  * @retval None
-  */
-void TIM_OC4PreloadConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPreload)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCPRELOAD_STATE(TIM_OCPreload));
-
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC4PE Bit */
-  tmpccmr2 &= (uint16_t)(~TIM_CCMR2_OC4PE);
-
-  /* Enable or Disable the Output Compare Preload feature */
-  tmpccmr2 |= (uint16_t)(TIM_OCPreload << 8);
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Configures the TIMx Output Compare 1 Fast feature.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_OCFast: new state of the Output Compare Fast Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCFast_Enable: TIM output compare fast enable
-  *            @arg TIM_OCFast_Disable: TIM output compare fast disable
-  * @retval None
-  */
+```c
+//输出比较快速模式设置（4个通道）
 void TIM_OC1FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast)
 {
   uint16_t tmpccmr1 = 0;
@@ -1294,106 +815,14 @@ void TIM_OC1FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast)
   TIMx->CCMR1 = tmpccmr1;
 }
 
-/**
-  * @brief  Configures the TIMx Output Compare 2 Fast feature.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_OCFast: new state of the Output Compare Fast Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCFast_Enable: TIM output compare fast enable
-  *            @arg TIM_OCFast_Disable: TIM output compare fast disable
-  * @retval None
-  */
-void TIM_OC2FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast)
-{
-  uint16_t tmpccmr1 = 0;
+```
 
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_OCFAST_STATE(TIM_OCFast));
+* 选择输出比较强制模式（Output Compare Forced mode）
+* 输出比较-预装载模式
+* 清空输出比较参考值
 
-  /* Get the TIMx CCMR1 register value */
-  tmpccmr1 = TIMx->CCMR1;
-
-  /* Reset the OC2FE Bit */
-  tmpccmr1 &= (uint16_t)(~TIM_CCMR1_OC2FE);
-
-  /* Enable or Disable the Output Compare Fast Bit */
-  tmpccmr1 |= (uint16_t)(TIM_OCFast << 8);
-
-  /* Write to TIMx CCMR1 */
-  TIMx->CCMR1 = tmpccmr1;
-}
-
-/**
-  * @brief  Configures the TIMx Output Compare 3 Fast feature.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCFast: new state of the Output Compare Fast Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCFast_Enable: TIM output compare fast enable
-  *            @arg TIM_OCFast_Disable: TIM output compare fast disable
-  * @retval None
-  */
-void TIM_OC3FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast)
-{
-  uint16_t tmpccmr2 = 0;
-  
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCFAST_STATE(TIM_OCFast));
-
-  /* Get the TIMx CCMR2 register value */
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC3FE Bit */
-  tmpccmr2 &= (uint16_t)~TIM_CCMR2_OC3FE;
-
-  /* Enable or Disable the Output Compare Fast Bit */
-  tmpccmr2 |= TIM_OCFast;
-
-  /* Write to TIMx CCMR2 */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Configures the TIMx Output Compare 4 Fast feature.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCFast: new state of the Output Compare Fast Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCFast_Enable: TIM output compare fast enable
-  *            @arg TIM_OCFast_Disable: TIM output compare fast disable
-  * @retval None
-  */
-void TIM_OC4FastConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCFast)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCFAST_STATE(TIM_OCFast));
-
-  /* Get the TIMx CCMR2 register value */
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC4FE Bit */
-  tmpccmr2 &= (uint16_t)(~TIM_CCMR2_OC4FE);
-
-  /* Enable or Disable the Output Compare Fast Bit */
-  tmpccmr2 |= (uint16_t)(TIM_OCFast << 8);
-
-  /* Write to TIMx CCMR2 */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Clears or safeguards the OCREF1 signal on an external event
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_OCClear: new state of the Output Compare Clear Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCClear_Enable: TIM Output clear enable
-  *            @arg TIM_OCClear_Disable: TIM Output clear disable
-  * @retval None
-  */
+```c
+//清空输出比较参考值（4通道）
 void TIM_ClearOC1Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear)
 {
   uint16_t tmpccmr1 = 0;
@@ -1413,297 +842,13 @@ void TIM_ClearOC1Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear)
   /* Write to TIMx CCMR1 register */
   TIMx->CCMR1 = tmpccmr1;
 }
+```
 
-/**
-  * @brief  Clears or safeguards the OCREF2 signal on an external event
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_OCClear: new state of the Output Compare Clear Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCClear_Enable: TIM Output clear enable
-  *            @arg TIM_OCClear_Disable: TIM Output clear disable
-  * @retval None
-  */
-void TIM_ClearOC2Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear)
-{
-  uint16_t tmpccmr1 = 0;
+* 选择OCREF清空信号
+* 使能/失能捕获/比较通道
 
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_OCCLEAR_STATE(TIM_OCClear));
-
-  tmpccmr1 = TIMx->CCMR1;
-
-  /* Reset the OC2CE Bit */
-  tmpccmr1 &= (uint16_t)~TIM_CCMR1_OC2CE;
-
-  /* Enable or Disable the Output Compare Clear Bit */
-  tmpccmr1 |= (uint16_t)(TIM_OCClear << 8);
-
-  /* Write to TIMx CCMR1 register */
-  TIMx->CCMR1 = tmpccmr1;
-}
-
-/**
-  * @brief  Clears or safeguards the OCREF3 signal on an external event
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCClear: new state of the Output Compare Clear Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCClear_Enable: TIM Output clear enable
-  *            @arg TIM_OCClear_Disable: TIM Output clear disable
-  * @retval None
-  */
-void TIM_ClearOC3Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCCLEAR_STATE(TIM_OCClear));
-
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC3CE Bit */
-  tmpccmr2 &= (uint16_t)~TIM_CCMR2_OC3CE;
-
-  /* Enable or Disable the Output Compare Clear Bit */
-  tmpccmr2 |= TIM_OCClear;
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Clears or safeguards the OCREF4 signal on an external event
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCClear: new state of the Output Compare Clear Enable Bit.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCClear_Enable: TIM Output clear enable
-  *            @arg TIM_OCClear_Disable: TIM Output clear disable
-  * @retval None
-  */
-void TIM_ClearOC4Ref(TIM_TypeDef* TIMx, uint16_t TIM_OCClear)
-{
-  uint16_t tmpccmr2 = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OCCLEAR_STATE(TIM_OCClear));
-
-  tmpccmr2 = TIMx->CCMR2;
-
-  /* Reset the OC4CE Bit */
-  tmpccmr2 &= (uint16_t)~TIM_CCMR2_OC4CE;
-
-  /* Enable or Disable the Output Compare Clear Bit */
-  tmpccmr2 |= (uint16_t)(TIM_OCClear << 8);
-
-  /* Write to TIMx CCMR2 register */
-  TIMx->CCMR2 = tmpccmr2;
-}
-
-/**
-  * @brief  Configures the TIMx channel 1 polarity.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_OCPolarity: specifies the OC1 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPolarity_High: Output Compare active high
-  *            @arg TIM_OCPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC1PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity)
-{
-  uint16_t tmpccer = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST1_PERIPH(TIMx));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCPolarity));
-
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC1P Bit */
-  tmpccer &= (uint16_t)(~TIM_CCER_CC1P);
-  tmpccer |= TIM_OCPolarity;
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx Channel 1N polarity.
-  * @param  TIMx: where x can be 1 or 8 to select the TIM peripheral.
-  * @param  TIM_OCNPolarity: specifies the OC1N Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCNPolarity_High: Output Compare active high
-  *            @arg TIM_OCNPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC1NPolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCNPolarity)
-{
-  uint16_t tmpccer = 0;
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST4_PERIPH(TIMx));
-  assert_param(IS_TIM_OCN_POLARITY(TIM_OCNPolarity));
-   
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC1NP Bit */
-  tmpccer &= (uint16_t)~TIM_CCER_CC1NP;
-  tmpccer |= TIM_OCNPolarity;
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx channel 2 polarity.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_OCPolarity: specifies the OC2 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPolarity_High: Output Compare active high
-  *            @arg TIM_OCPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC2PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity)
-{
-  uint16_t tmpccer = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCPolarity));
-
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC2P Bit */
-  tmpccer &= (uint16_t)(~TIM_CCER_CC2P);
-  tmpccer |= (uint16_t)(TIM_OCPolarity << 4);
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx Channel 2N polarity.
-  * @param  TIMx: where x can be 1 or 8 to select the TIM peripheral.
-  * @param  TIM_OCNPolarity: specifies the OC2N Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCNPolarity_High: Output Compare active high
-  *            @arg TIM_OCNPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC2NPolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCNPolarity)
-{
-  uint16_t tmpccer = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST4_PERIPH(TIMx));
-  assert_param(IS_TIM_OCN_POLARITY(TIM_OCNPolarity));
-  
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC2NP Bit */
-  tmpccer &= (uint16_t)~TIM_CCER_CC2NP;
-  tmpccer |= (uint16_t)(TIM_OCNPolarity << 4);
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx channel 3 polarity.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCPolarity: specifies the OC3 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPolarity_High: Output Compare active high
-  *            @arg TIM_OCPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC3PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity)
-{
-  uint16_t tmpccer = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCPolarity));
-
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC3P Bit */
-  tmpccer &= (uint16_t)~TIM_CCER_CC3P;
-  tmpccer |= (uint16_t)(TIM_OCPolarity << 8);
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx Channel 3N polarity.
-  * @param  TIMx: where x can be 1 or 8 to select the TIM peripheral.
-  * @param  TIM_OCNPolarity: specifies the OC3N Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCNPolarity_High: Output Compare active high
-  *            @arg TIM_OCNPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC3NPolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCNPolarity)
-{
-  uint16_t tmpccer = 0;
- 
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST4_PERIPH(TIMx));
-  assert_param(IS_TIM_OCN_POLARITY(TIM_OCNPolarity));
-    
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC3NP Bit */
-  tmpccer &= (uint16_t)~TIM_CCER_CC3NP;
-  tmpccer |= (uint16_t)(TIM_OCNPolarity << 8);
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configures the TIMx channel 4 polarity.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_OCPolarity: specifies the OC4 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_OCPolarity_High: Output Compare active high
-  *            @arg TIM_OCPolarity_Low: Output Compare active low
-  * @retval None
-  */
-void TIM_OC4PolarityConfig(TIM_TypeDef* TIMx, uint16_t TIM_OCPolarity)
-{
-  uint16_t tmpccer = 0;
-
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_OC_POLARITY(TIM_OCPolarity));
-
-  tmpccer = TIMx->CCER;
-
-  /* Set or Reset the CC4P Bit */
-  tmpccer &= (uint16_t)~TIM_CCER_CC4P;
-  tmpccer |= (uint16_t)(TIM_OCPolarity << 12);
-
-  /* Write to TIMx CCER register */
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Enables or disables the TIM Capture Compare Channel x.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_Channel: specifies the TIM Channel
-  *          This parameter can be one of the following values:
-  *            @arg TIM_Channel_1: TIM Channel 1
-  *            @arg TIM_Channel_2: TIM Channel 2
-  *            @arg TIM_Channel_3: TIM Channel 3
-  *            @arg TIM_Channel_4: TIM Channel 4
-  * @param  TIM_CCx: specifies the TIM Channel CCxE bit new state.
-  *          This parameter can be: TIM_CCx_Enable or TIM_CCx_Disable. 
-  * @retval None
-  */
+```c
+//控制捕获通道开启/关闭
 void TIM_CCxCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_CCx)
 {
   uint16_t tmp = 0;
@@ -1722,18 +867,7 @@ void TIM_CCxCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_CCx)
   TIMx->CCER |=  (uint16_t)(TIM_CCx << TIM_Channel);
 }
 
-/**
-  * @brief  Enables or disables the TIM Capture Compare Channel xN.
-  * @param  TIMx: where x can be 1 or 8 to select the TIM peripheral.
-  * @param  TIM_Channel: specifies the TIM Channel
-  *          This parameter can be one of the following values:
-  *            @arg TIM_Channel_1: TIM Channel 1
-  *            @arg TIM_Channel_2: TIM Channel 2
-  *            @arg TIM_Channel_3: TIM Channel 3
-  * @param  TIM_CCxN: specifies the TIM Channel CCxNE bit new state.
-  *          This parameter can be: TIM_CCxN_Enable or TIM_CCxN_Disable. 
-  * @retval None
-  */
+//控制捕获比较通道开启/关闭
 void TIM_CCxNCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_CCxN)
 {
   uint16_t tmp = 0;
@@ -1751,73 +885,35 @@ void TIM_CCxNCmd(TIM_TypeDef* TIMx, uint16_t TIM_Channel, uint16_t TIM_CCxN)
   /* Set or reset the CCxNE Bit */ 
   TIMx->CCER |=  (uint16_t)(TIM_CCxN << TIM_Channel);
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group3 Input Capture management functions
- *  @brief    Input Capture management functions 
- *
-@verbatim   
- ===============================================================================
-                  ##### Input Capture management functions #####
- ===============================================================================  
-         
-            ##### TIM Driver: how to use it in Input Capture Mode #####
- ===============================================================================
-    [..]    
-    To use the Timer in Input Capture mode, the following steps are mandatory:
-       
-      (#) Enable TIM clock using RCC_APBxPeriphClockCmd(RCC_APBxPeriph_TIMx, ENABLE) 
-          function
-       
-      (#) Configure the TIM pins by configuring the corresponding GPIO pins
-       
-      (#) Configure the Time base unit as described in the first part of this driver,
-          if needed, else the Timer will run with the default configuration:
-        (++) Autoreload value = 0xFFFF
-        (++) Prescaler value = 0x0000
-        (++) Counter mode = Up counting
-        (++) Clock Division = TIM_CKD_DIV1
-          
-      (#) Fill the TIM_ICInitStruct with the desired parameters including:
-        (++) TIM Channel: TIM_Channel
-        (++) TIM Input Capture polarity: TIM_ICPolarity
-        (++) TIM Input Capture selection: TIM_ICSelection
-        (++) TIM Input Capture Prescaler: TIM_ICPrescaler
-        (++) TIM Input CApture filter value: TIM_ICFilter
-       
-      (#) Call TIM_ICInit(TIMx, &TIM_ICInitStruct) to configure the desired channel 
-          with the corresponding configuration and to measure only frequency 
-          or duty cycle of the input signal, or, Call TIM_PWMIConfig(TIMx, &TIM_ICInitStruct) 
-          to configure the desired channels with the corresponding configuration 
-          and to measure the frequency and the duty cycle of the input signal
-          
-      (#) Enable the NVIC or the DMA to read the measured frequency. 
-          
-      (#) Enable the corresponding interrupt (or DMA request) to read the Captured 
-          value, using the function TIM_ITConfig(TIMx, TIM_IT_CCx) 
-          (or TIM_DMA_Cmd(TIMx, TIM_DMA_CCx)) 
-       
-      (#) Call the TIM_Cmd(ENABLE) function to enable the TIM counter.
-       
-      (#) Use TIM_GetCapturex(TIMx); to read the captured value.
-       
-      -@- All other functions can be used separately to modify, if needed,
-          a specific feature of the Timer. 
+### TIM输入捕获管理
 
-@endverbatim
-  * @{
-  */
+ST也提供了定时器输入捕获的库函数
 
-/**
-  * @brief  Initializes the TIM peripheral according to the specified parameters
-  *         in the TIM_ICInitStruct.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_ICInitStruct: pointer to a TIM_ICInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
+基本使用方法如下：
+
+> 1. 使用RCC_APBxPeriphClockCmd(RCC_APBxPeriph_TIMx, ENABLE) 函数开启定时器时钟
+> 2. 将GPIO配置为合适的输入引脚，设置位复用模式并连接到定时器输入捕获
+> 3. 如果需要可以自行配置定时器时基设定，但推荐默认状态为：
+>    * 自动重装载值：0xFFFF
+>    * 分频值：0x0000
+>    * 计数模式：向上计数
+>    * 时钟分频：TIM_CKD_DIV1一分频
+> 4. 使用以下参数配置定时器输入捕获初始化结构体
+>    * 定时器通道：选择合适的通道
+>    * 定时器输入捕获选项：根据输入捕获选择
+>    * 定时器输入捕获分频：随机应变
+>    * 定时器输入捕获屏蔽器值：根据要过滤的捕获信号设置
+> 5. 使用TIM_ICInit(TIMx, &TIM_ICInitStruct)函数根据上面的设置配置所需通道，就可以让定时器输入捕获测量输入信号的频率、占空比，或使用TIM_PWMIConfig(TIMx, &TIM_ICInitStruct)函数配置通道来测量输入PWM波的频率和占空比
+> 6. 可使用中断或DMA方式读取测量信号，TIM_ITConfig(TIMx, TIM_IT_CCx)和TIM_DMA_Cmd(TIMx, TIM_DMA_CCx)函数都可选
+> 7. 使用TIM_Cmd(ENABLE)来开启定时器计数器
+> 8. 使用TIM_GetCapturex(TIMx)来读取捕获到的值
+
+* 单独配置每个通道位输入捕获模式
+
+```c
+//根据输入捕获初始化结构体配置某个通道为输入捕获模式
 void TIM_ICInit(TIM_TypeDef* TIMx, TIM_ICInitTypeDef* TIM_ICInitStruct)
 {
   /* Check the parameters */
@@ -1868,12 +964,7 @@ void TIM_ICInit(TIM_TypeDef* TIMx, TIM_ICInitTypeDef* TIM_ICInitStruct)
   }
 }
 
-/**
-  * @brief  Fills each TIM_ICInitStruct member with its default value.
-  * @param  TIM_ICInitStruct: pointer to a TIM_ICInitTypeDef structure which will
-  *         be initialized.
-  * @retval None
-  */
+//使用默认设置配置输入捕获初始化结构体
 void TIM_ICStructInit(TIM_ICInitTypeDef* TIM_ICInitStruct)
 {
   /* Set the default configuration */
@@ -1883,16 +974,12 @@ void TIM_ICStructInit(TIM_ICInitTypeDef* TIM_ICInitStruct)
   TIM_ICInitStruct->TIM_ICPrescaler = TIM_ICPSC_DIV1;
   TIM_ICInitStruct->TIM_ICFilter = 0x00;
 }
+```
 
-/**
-  * @brief  Configures the TIM peripheral according to the specified parameters
-  *         in the TIM_ICInitStruct to measure an external PWM signal.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5,8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_ICInitStruct: pointer to a TIM_ICInitTypeDef structure that contains
-  *         the configuration information for the specified TIM peripheral.
-  * @retval None
-  */
+* 可配置通道1/2处于PWM输入模式，用于获取外部脉冲/测量外部信号频率（如编码器输入、遥控信号输入等）
+
+```c
+//配置通道为PWM输入模式
 void TIM_PWMIConfig(TIM_TypeDef* TIMx, TIM_ICInitTypeDef* TIM_ICInitStruct)
 {
   uint16_t icoppositepolarity = TIM_ICPolarity_Rising;
@@ -1944,75 +1031,12 @@ void TIM_PWMIConfig(TIM_TypeDef* TIMx, TIM_ICInitTypeDef* TIM_ICInitStruct)
     TIM_SetIC1Prescaler(TIMx, TIM_ICInitStruct->TIM_ICPrescaler);
   }
 }
+```
 
-/**
-  * @brief  Gets the TIMx Input Capture 1 value.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @retval Capture Compare 1 Register value.
-  */
-uint32_t TIM_GetCapture1(TIM_TypeDef* TIMx)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST1_PERIPH(TIMx));
+* 设置输入捕获预分频器
 
-  /* Get the Capture 1 Register value */
-  return TIMx->CCR1;
-}
-
-/**
-  * @brief  Gets the TIMx Input Capture 2 value.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @retval Capture Compare 2 Register value.
-  */
-uint32_t TIM_GetCapture2(TIM_TypeDef* TIMx)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-
-  /* Get the Capture 2 Register value */
-  return TIMx->CCR2;
-}
-
-/**
-  * @brief  Gets the TIMx Input Capture 3 value.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @retval Capture Compare 3 Register value.
-  */
-uint32_t TIM_GetCapture3(TIM_TypeDef* TIMx)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx)); 
-
-  /* Get the Capture 3 Register value */
-  return TIMx->CCR3;
-}
-
-/**
-  * @brief  Gets the TIMx Input Capture 4 value.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @retval Capture Compare 4 Register value.
-  */
-uint32_t TIM_GetCapture4(TIM_TypeDef* TIMx)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-
-  /* Get the Capture 4 Register value */
-  return TIMx->CCR4;
-}
-
-/**
-  * @brief  Sets the TIMx Input Capture 1 prescaler.
-  * @param  TIMx: where x can be 1 to 14 except 6 and 7, to select the TIM peripheral.
-  * @param  TIM_ICPSC: specifies the Input Capture1 prescaler new value.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPSC_DIV1: no prescaler
-  *            @arg TIM_ICPSC_DIV2: capture is done once every 2 events
-  *            @arg TIM_ICPSC_DIV4: capture is done once every 4 events
-  *            @arg TIM_ICPSC_DIV8: capture is done once every 8 events
-  * @retval None
-  */
+```c
+//设置输入捕获1、2、3、4通道预分频器的值
 void TIM_SetIC1Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC)
 {
   /* Check the parameters */
@@ -2025,120 +1049,64 @@ void TIM_SetIC1Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC)
   /* Set the IC1PSC value */
   TIMx->CCMR1 |= TIM_ICPSC;
 }
+```
 
-/**
-  * @brief  Sets the TIMx Input Capture 2 prescaler.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_ICPSC: specifies the Input Capture2 prescaler new value.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPSC_DIV1: no prescaler
-  *            @arg TIM_ICPSC_DIV2: capture is done once every 2 events
-  *            @arg TIM_ICPSC_DIV4: capture is done once every 4 events
-  *            @arg TIM_ICPSC_DIV8: capture is done once every 8 events
-  * @retval None
-  */
-void TIM_SetIC2Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC)
+* 获取捕获/比较值
+
+```c
+//获取输入捕获1、2、3、4的值
+uint32_t TIM_GetCapture1(TIM_TypeDef* TIMx)
+{
+  /* Check the parameters */
+  assert_param(IS_TIM_LIST1_PERIPH(TIMx));
+
+  /* Get the Capture 1 Register value */
+  return TIMx->CCR1;
+}
+
+uint32_t TIM_GetCapture2(TIM_TypeDef* TIMx)
 {
   /* Check the parameters */
   assert_param(IS_TIM_LIST2_PERIPH(TIMx));
-  assert_param(IS_TIM_IC_PRESCALER(TIM_ICPSC));
 
-  /* Reset the IC2PSC Bits */
-  TIMx->CCMR1 &= (uint16_t)~TIM_CCMR1_IC2PSC;
-
-  /* Set the IC2PSC value */
-  TIMx->CCMR1 |= (uint16_t)(TIM_ICPSC << 8);
+  /* Get the Capture 2 Register value */
+  return TIMx->CCR2;
 }
 
-/**
-  * @brief  Sets the TIMx Input Capture 3 prescaler.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ICPSC: specifies the Input Capture3 prescaler new value.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPSC_DIV1: no prescaler
-  *            @arg TIM_ICPSC_DIV2: capture is done once every 2 events
-  *            @arg TIM_ICPSC_DIV4: capture is done once every 4 events
-  *            @arg TIM_ICPSC_DIV8: capture is done once every 8 events
-  * @retval None
-  */
-void TIM_SetIC3Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC)
+uint32_t TIM_GetCapture3(TIM_TypeDef* TIMx)
+{
+  /* Check the parameters */
+  assert_param(IS_TIM_LIST3_PERIPH(TIMx)); 
+
+  /* Get the Capture 3 Register value */
+  return TIMx->CCR3;
+}
+
+uint32_t TIM_GetCapture4(TIM_TypeDef* TIMx)
 {
   /* Check the parameters */
   assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_IC_PRESCALER(TIM_ICPSC));
 
-  /* Reset the IC3PSC Bits */
-  TIMx->CCMR2 &= (uint16_t)~TIM_CCMR2_IC3PSC;
-
-  /* Set the IC3PSC value */
-  TIMx->CCMR2 |= TIM_ICPSC;
+  /* Get the Capture 4 Register value */
+  return TIMx->CCR4;
 }
+```
 
-/**
-  * @brief  Sets the TIMx Input Capture 4 prescaler.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ICPSC: specifies the Input Capture4 prescaler new value.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPSC_DIV1: no prescaler
-  *            @arg TIM_ICPSC_DIV2: capture is done once every 2 events
-  *            @arg TIM_ICPSC_DIV4: capture is done once every 4 events
-  *            @arg TIM_ICPSC_DIV8: capture is done once every 8 events
-  * @retval None
-  */
-void TIM_SetIC4Prescaler(TIM_TypeDef* TIMx, uint16_t TIM_ICPSC)
-{  
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_IC_PRESCALER(TIM_ICPSC));
+### 高级定时器（TIM1、TIM8）的特殊控制库函数
 
-  /* Reset the IC4PSC Bits */
-  TIMx->CCMR2 &= (uint16_t)~TIM_CCMR2_IC4PSC;
+STM32F4中具有两个高级定时器，ST也为它们提供了库函数
 
-  /* Set the IC4PSC value */
-  TIMx->CCMR2 |= (uint16_t)(TIM_ICPSC << 8);
-}
-/**
-  * @}
-  */
+下面是基本使用方法
 
-/** @defgroup TIM_Group4 Advanced-control timers (TIM1 and TIM8) specific features
- *  @brief   Advanced-control timers (TIM1 and TIM8) specific features
- *
-@verbatim   
- ===============================================================================
-      ##### Advanced-control timers (TIM1 and TIM8) specific features #####
- ===============================================================================  
-        
-             ##### TIM Driver: how to use the Break feature #####
- ===============================================================================
-    [..] 
-    After configuring the Timer channel(s) in the appropriate Output Compare mode: 
-                         
-      (#) Fill the TIM_BDTRInitStruct with the desired parameters for the Timer
-          Break Polarity, dead time, Lock level, the OSSI/OSSR State and the 
-          AOE(automatic output enable).
-               
-      (#) Call TIM_BDTRConfig(TIMx, &TIM_BDTRInitStruct) to configure the Timer
-          
-      (#) Enable the Main Output using TIM_CtrlPWMOutputs(TIM1, ENABLE) 
-          
-      (#) Once the break even occurs, the Timer's output signals are put in reset
-          state or in a known state (according to the configuration made in
-          TIM_BDTRConfig() function).
+> 1. 使用输出比较模式配置定时器通道
+> 2. 使用TIM_BDTRInitStruct结构体设置时钟断点极性、死区时间、锁定等级、OSSI/OSSR状态和AOE（自动输出使能）模式
+> 3. 使用TIM_BDTRConfig(TIMx, &TIM_BDTRInitStruct)配置定时器的高级功能
+> 4. 使用TIM_CtrlPWMOutputs(TIM1, ENABLE)函数使能主输出
+> 5. 一旦断点发生，定时器的输出信号就会被置于重置或某个经过TIM_BDTRConfig()设定的状态
 
-@endverbatim
-  * @{
-  */
+* 配置断点输入（Break input）、死区时间、锁定等级、OSSI、OSSR状态、AOE（自动输入使能）
 
-/**
-  * @brief  Configures the Break feature, dead time, Lock level, OSSI/OSSR State
-  *         and the AOE(automatic output enable).
-  * @param  TIMx: where x can be  1 or 8 to select the TIM 
-  * @param  TIM_BDTRInitStruct: pointer to a TIM_BDTRInitTypeDef structure that
-  *         contains the BDTR Register configuration  information for the TIM peripheral.
-  * @retval None
-  */
+```c
 void TIM_BDTRConfig(TIM_TypeDef* TIMx, TIM_BDTRInitTypeDef *TIM_BDTRInitStruct)
 {
   /* Check the parameters */
@@ -2158,12 +1126,7 @@ void TIM_BDTRConfig(TIM_TypeDef* TIMx, TIM_BDTRInitTypeDef *TIM_BDTRInitStruct)
              TIM_BDTRInitStruct->TIM_AutomaticOutput;
 }
 
-/**
-  * @brief  Fills each TIM_BDTRInitStruct member with its default value.
-  * @param  TIM_BDTRInitStruct: pointer to a TIM_BDTRInitTypeDef structure which
-  *         will be initialized.
-  * @retval None
-  */
+//使用初始化结构体默认设置
 void TIM_BDTRStructInit(TIM_BDTRInitTypeDef* TIM_BDTRInitStruct)
 {
   /* Set the default configuration */
@@ -2175,14 +1138,11 @@ void TIM_BDTRStructInit(TIM_BDTRInitTypeDef* TIM_BDTRInitStruct)
   TIM_BDTRInitStruct->TIM_BreakPolarity = TIM_BreakPolarity_Low;
   TIM_BDTRInitStruct->TIM_AutomaticOutput = TIM_AutomaticOutput_Disable;
 }
+```
 
-/**
-  * @brief  Enables or disables the TIM peripheral Main Outputs.
-  * @param  TIMx: where x can be 1 or 8 to select the TIMx peripheral.
-  * @param  NewState: new state of the TIM peripheral Main Outputs.
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 使能/失能定时器外设主输出
+
+```c
 void TIM_CtrlPWMOutputs(TIM_TypeDef* TIMx, FunctionalState NewState)
 {
   /* Check the parameters */
@@ -2200,14 +1160,12 @@ void TIM_CtrlPWMOutputs(TIM_TypeDef* TIMx, FunctionalState NewState)
     TIMx->BDTR &= (uint16_t)~TIM_BDTR_MOE;
   }  
 }
+```
 
-/**
-  * @brief  Selects the TIM peripheral Commutation event.
-  * @param  TIMx: where x can be  1 or 8 to select the TIMx peripheral
-  * @param  NewState: new state of the Commutation event.
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 选择通讯事件
+
+```c
+//选择通信事件
 void TIM_SelectCOM(TIM_TypeDef* TIMx, FunctionalState NewState)
 {
   /* Check the parameters */
@@ -2225,14 +1183,12 @@ void TIM_SelectCOM(TIM_TypeDef* TIMx, FunctionalState NewState)
     TIMx->CR2 &= (uint16_t)~TIM_CR2_CCUS;
   }
 }
+```
 
-/**
-  * @brief  Sets or Resets the TIM peripheral Capture Compare Preload Control bit.
-  * @param  TIMx: where x can be  1 or 8 to select the TIMx peripheral
-  * @param  NewState: new state of the Capture Compare Preload Control bit
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 设置/重置捕获比较预装载控制位
+
+```c
+//设置捕获比较预装载控制位
 void TIM_CCPreloadControl(TIM_TypeDef* TIMx, FunctionalState NewState)
 { 
   /* Check the parameters */
@@ -2249,47 +1205,16 @@ void TIM_CCPreloadControl(TIM_TypeDef* TIMx, FunctionalState NewState)
     TIMx->CR2 &= (uint16_t)~TIM_CR2_CCPC;
   }
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group5 Interrupts DMA and flags management functions
- *  @brief    Interrupts, DMA and flags management functions 
- *
-@verbatim   
- ===============================================================================
-          ##### Interrupts, DMA and flags management functions #####
- ===============================================================================  
+### 定时器中断、DMA与标志位管理
 
-@endverbatim
-  * @{
-  */
+STM32中的一些定时器是可以触发定时器中断、DMA的，ST也提供了管理库函数
 
-/**
-  * @brief  Enables or disables the specified TIM interrupts.
-  * @param  TIMx: where x can be 1 to 14 to select the TIMx peripheral.
-  * @param  TIM_IT: specifies the TIM interrupts sources to be enabled or disabled.
-  *          This parameter can be any combination of the following values:
-  *            @arg TIM_IT_Update: TIM update Interrupt source
-  *            @arg TIM_IT_CC1: TIM Capture Compare 1 Interrupt source
-  *            @arg TIM_IT_CC2: TIM Capture Compare 2 Interrupt source
-  *            @arg TIM_IT_CC3: TIM Capture Compare 3 Interrupt source
-  *            @arg TIM_IT_CC4: TIM Capture Compare 4 Interrupt source
-  *            @arg TIM_IT_COM: TIM Commutation Interrupt source
-  *            @arg TIM_IT_Trigger: TIM Trigger Interrupt source
-  *            @arg TIM_IT_Break: TIM Break Interrupt source
-  *  
-  * @note   For TIM6 and TIM7 only the parameter TIM_IT_Update can be used
-  * @note   For TIM9 and TIM12 only one of the following parameters can be used: TIM_IT_Update,
-  *          TIM_IT_CC1, TIM_IT_CC2 or TIM_IT_Trigger. 
-  * @note   For TIM10, TIM11, TIM13 and TIM14 only one of the following parameters can
-  *          be used: TIM_IT_Update or TIM_IT_CC1   
-  * @note   TIM_IT_COM and TIM_IT_Break can be used only with TIM1 and TIM8 
-  *        
-  * @param  NewState: new state of the TIM interrupts.
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 使能/失能中断源
+
+```c
+//使能或关闭定时器中断
 void TIM_ITConfig(TIM_TypeDef* TIMx, uint16_t TIM_IT, FunctionalState NewState)
 {  
   /* Check the parameters */
@@ -2309,25 +1234,23 @@ void TIM_ITConfig(TIM_TypeDef* TIMx, uint16_t TIM_IT, FunctionalState NewState)
   }
 }
 
-/**
-  * @brief  Configures the TIMx event to be generate by software.
-  * @param  TIMx: where x can be 1 to 14 to select the TIM peripheral.
-  * @param  TIM_EventSource: specifies the event source.
-  *          This parameter can be one or more of the following values:	   
-  *            @arg TIM_EventSource_Update: Timer update Event source
-  *            @arg TIM_EventSource_CC1: Timer Capture Compare 1 Event source
-  *            @arg TIM_EventSource_CC2: Timer Capture Compare 2 Event source
-  *            @arg TIM_EventSource_CC3: Timer Capture Compare 3 Event source
-  *            @arg TIM_EventSource_CC4: Timer Capture Compare 4 Event source
-  *            @arg TIM_EventSource_COM: Timer COM event source  
-  *            @arg TIM_EventSource_Trigger: Timer Trigger Event source
-  *            @arg TIM_EventSource_Break: Timer Break event source
-  * 
-  * @note   TIM6 and TIM7 can only generate an update event. 
-  * @note   TIM_EventSource_COM and TIM_EventSource_Break are used only with TIM1 and TIM8.
-  *        
-  * @retval None
-  */
+/* 
+TIM_IT参数可设置为以下值
+TIM_IT_Update:定时器更新中断
+TIM_IT_CC1:定时器比较中断4
+TIM_IT_CC2:定时器比较中断4
+TIM_IT_CC3:定时器比较中断4
+TIM_IT_CC4:定时器比较中断4
+TIM_IT_COM:定时器通讯中断
+TIM_IT_Trigger:定时器触发中断
+TIM_IT_Break:定时器暂停中断
+
+TIM6和TIM7只能使用TIM_IT_Update，TIM9和TIM12只能使用TIM_IT_Update，TIM_IT_CC1, TIM_IT_CC2或TIM_IT_Trigger
+TIM10、11、13、14只能使用TIM_IT_Update或TIM_IT_CC1
+TIM1和TIM8两个高级定时器才被允许使用TIM_IT_COM和TIM_IT_Break
+*/
+
+//设置定时器软件事件
 void TIM_GenerateEvent(TIM_TypeDef* TIMx, uint16_t TIM_EventSource)
 { 
   /* Check the parameters */
@@ -2338,29 +1261,24 @@ void TIM_GenerateEvent(TIM_TypeDef* TIMx, uint16_t TIM_EventSource)
   TIMx->EGR = TIM_EventSource;
 }
 
-/**
-  * @brief  Checks whether the specified TIM flag is set or not.
-  * @param  TIMx: where x can be 1 to 14 to select the TIM peripheral.
-  * @param  TIM_FLAG: specifies the flag to check.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_FLAG_Update: TIM update Flag
-  *            @arg TIM_FLAG_CC1: TIM Capture Compare 1 Flag
-  *            @arg TIM_FLAG_CC2: TIM Capture Compare 2 Flag
-  *            @arg TIM_FLAG_CC3: TIM Capture Compare 3 Flag
-  *            @arg TIM_FLAG_CC4: TIM Capture Compare 4 Flag
-  *            @arg TIM_FLAG_COM: TIM Commutation Flag
-  *            @arg TIM_FLAG_Trigger: TIM Trigger Flag
-  *            @arg TIM_FLAG_Break: TIM Break Flag
-  *            @arg TIM_FLAG_CC1OF: TIM Capture Compare 1 over capture Flag
-  *            @arg TIM_FLAG_CC2OF: TIM Capture Compare 2 over capture Flag
-  *            @arg TIM_FLAG_CC3OF: TIM Capture Compare 3 over capture Flag
-  *            @arg TIM_FLAG_CC4OF: TIM Capture Compare 4 over capture Flag
-  *
-  * @note   TIM6 and TIM7 can have only one update flag. 
-  * @note   TIM_FLAG_COM and TIM_FLAG_Break are used only with TIM1 and TIM8.    
-  *
-  * @retval The new state of TIM_FLAG (SET or RESET).
-  */
+/*
+TIM_EventSource_Update:定时器更新事件（下面内容和上面中断的内冲差不多，懒得翻译了）
+TIM_EventSource_CC1: Timer Capture Compare 1 Event source
+TIM_EventSource_CC2: Timer Capture Compare 2 Event source
+TIM_EventSource_CC3: Timer Capture Compare 3 Event source
+TIM_EventSource_CC4: Timer Capture Compare 4 Event source
+TIM_EventSource_COM: Timer COM event source  
+TIM_EventSource_Trigger: Timer Trigger Event source
+TIM_EventSource_Break: Timer Break event source
+
+其中TIM6、7只能使用定时器更新事件；只有高级定时器TIM1、8才能使用后三个高级事件功能
+*/
+```
+
+* 获取标志状态
+
+```c
+//获取当前中断标志位状态
 FlagStatus TIM_GetFlagStatus(TIM_TypeDef* TIMx, uint16_t TIM_FLAG)
 { 
   ITStatus bitstatus = RESET;  
@@ -2379,58 +1297,12 @@ FlagStatus TIM_GetFlagStatus(TIM_TypeDef* TIMx, uint16_t TIM_FLAG)
   }
   return bitstatus;
 }
+```
 
-/**
-  * @brief  Clears the TIMx's pending flags.
-  * @param  TIMx: where x can be 1 to 14 to select the TIM peripheral.
-  * @param  TIM_FLAG: specifies the flag bit to clear.
-  *          This parameter can be any combination of the following values:
-  *            @arg TIM_FLAG_Update: TIM update Flag
-  *            @arg TIM_FLAG_CC1: TIM Capture Compare 1 Flag
-  *            @arg TIM_FLAG_CC2: TIM Capture Compare 2 Flag
-  *            @arg TIM_FLAG_CC3: TIM Capture Compare 3 Flag
-  *            @arg TIM_FLAG_CC4: TIM Capture Compare 4 Flag
-  *            @arg TIM_FLAG_COM: TIM Commutation Flag
-  *            @arg TIM_FLAG_Trigger: TIM Trigger Flag
-  *            @arg TIM_FLAG_Break: TIM Break Flag
-  *            @arg TIM_FLAG_CC1OF: TIM Capture Compare 1 over capture Flag
-  *            @arg TIM_FLAG_CC2OF: TIM Capture Compare 2 over capture Flag
-  *            @arg TIM_FLAG_CC3OF: TIM Capture Compare 3 over capture Flag
-  *            @arg TIM_FLAG_CC4OF: TIM Capture Compare 4 over capture Flag
-  *
-  * @note   TIM6 and TIM7 can have only one update flag. 
-  * @note   TIM_FLAG_COM and TIM_FLAG_Break are used only with TIM1 and TIM8.
-  *    
-  * @retval None
-  */
-void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG)
-{  
-  /* Check the parameters */
-  assert_param(IS_TIM_ALL_PERIPH(TIMx));
-   
-  /* Clear the flags */
-  TIMx->SR = (uint16_t)~TIM_FLAG;
-}
+* 获取中断状态
 
-/**
-  * @brief  Checks whether the TIM interrupt has occurred or not.
-  * @param  TIMx: where x can be 1 to 14 to select the TIM peripheral.
-  * @param  TIM_IT: specifies the TIM interrupt source to check.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_IT_Update: TIM update Interrupt source
-  *            @arg TIM_IT_CC1: TIM Capture Compare 1 Interrupt source
-  *            @arg TIM_IT_CC2: TIM Capture Compare 2 Interrupt source
-  *            @arg TIM_IT_CC3: TIM Capture Compare 3 Interrupt source
-  *            @arg TIM_IT_CC4: TIM Capture Compare 4 Interrupt source
-  *            @arg TIM_IT_COM: TIM Commutation Interrupt source
-  *            @arg TIM_IT_Trigger: TIM Trigger Interrupt source
-  *            @arg TIM_IT_Break: TIM Break Interrupt source
-  *
-  * @note   TIM6 and TIM7 can generate only an update interrupt.
-  * @note   TIM_IT_COM and TIM_IT_Break are used only with TIM1 and TIM8.
-  *     
-  * @retval The new state of the TIM_IT(SET or RESET).
-  */
+```c
+//获取当前中断发生状态
 ITStatus TIM_GetITStatus(TIM_TypeDef* TIMx, uint16_t TIM_IT)
 {
   ITStatus bitstatus = RESET;  
@@ -2452,26 +1324,22 @@ ITStatus TIM_GetITStatus(TIM_TypeDef* TIMx, uint16_t TIM_IT)
   }
   return bitstatus;
 }
+```
 
-/**
-  * @brief  Clears the TIMx's interrupt pending bits.
-  * @param  TIMx: where x can be 1 to 14 to select the TIM peripheral.
-  * @param  TIM_IT: specifies the pending bit to clear.
-  *          This parameter can be any combination of the following values:
-  *            @arg TIM_IT_Update: TIM1 update Interrupt source
-  *            @arg TIM_IT_CC1: TIM Capture Compare 1 Interrupt source
-  *            @arg TIM_IT_CC2: TIM Capture Compare 2 Interrupt source
-  *            @arg TIM_IT_CC3: TIM Capture Compare 3 Interrupt source
-  *            @arg TIM_IT_CC4: TIM Capture Compare 4 Interrupt source
-  *            @arg TIM_IT_COM: TIM Commutation Interrupt source
-  *            @arg TIM_IT_Trigger: TIM Trigger Interrupt source
-  *            @arg TIM_IT_Break: TIM Break Interrupt source
-  *
-  * @note   TIM6 and TIM7 can generate only an update interrupt.
-  * @note   TIM_IT_COM and TIM_IT_Break are used only with TIM1 and TIM8.
-  *      
-  * @retval None
-  */
+* 清空标志位/挂起标志位
+
+```c
+//清空中断标志位
+void TIM_ClearFlag(TIM_TypeDef* TIMx, uint16_t TIM_FLAG)
+{  
+  /* Check the parameters */
+  assert_param(IS_TIM_ALL_PERIPH(TIMx));
+   
+  /* Clear the flags */
+  TIMx->SR = (uint16_t)~TIM_FLAG;
+}
+
+//清空中断挂起标志位
 void TIM_ClearITPendingBit(TIM_TypeDef* TIMx, uint16_t TIM_IT)
 {
   /* Check the parameters */
@@ -2480,62 +1348,12 @@ void TIM_ClearITPendingBit(TIM_TypeDef* TIMx, uint16_t TIM_IT)
   /* Clear the IT pending Bit */
   TIMx->SR = (uint16_t)~TIM_IT;
 }
+```
 
-/**
-  * @brief  Configures the TIMx's DMA interface.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_DMABase: DMA Base address.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_DMABase_CR1  
-  *            @arg TIM_DMABase_CR2
-  *            @arg TIM_DMABase_SMCR
-  *            @arg TIM_DMABase_DIER
-  *            @arg TIM1_DMABase_SR
-  *            @arg TIM_DMABase_EGR
-  *            @arg TIM_DMABase_CCMR1
-  *            @arg TIM_DMABase_CCMR2
-  *            @arg TIM_DMABase_CCER
-  *            @arg TIM_DMABase_CNT   
-  *            @arg TIM_DMABase_PSC   
-  *            @arg TIM_DMABase_ARR
-  *            @arg TIM_DMABase_RCR
-  *            @arg TIM_DMABase_CCR1
-  *            @arg TIM_DMABase_CCR2
-  *            @arg TIM_DMABase_CCR3  
-  *            @arg TIM_DMABase_CCR4
-  *            @arg TIM_DMABase_BDTR
-  *            @arg TIM_DMABase_DCR
-  * @param  TIM_DMABurstLength: DMA Burst length. This parameter can be one value
-  *         between: TIM_DMABurstLength_1Transfer and TIM_DMABurstLength_18Transfers.
-  * @retval None
-  */
-void TIM_DMAConfig(TIM_TypeDef* TIMx, uint16_t TIM_DMABase, uint16_t TIM_DMABurstLength)
-{
-  /* Check the parameters */
-  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
-  assert_param(IS_TIM_DMA_BASE(TIM_DMABase)); 
-  assert_param(IS_TIM_DMA_LENGTH(TIM_DMABurstLength));
+* 使能/失能DMA请求
 
-  /* Set the DMA Base and the DMA Burst Length */
-  TIMx->DCR = TIM_DMABase | TIM_DMABurstLength;
-}
-
-/**
-  * @brief  Enables or disables the TIMx's DMA Requests.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 6, 7 or 8 to select the TIM peripheral.
-  * @param  TIM_DMASource: specifies the DMA Request sources.
-  *          This parameter can be any combination of the following values:
-  *            @arg TIM_DMA_Update: TIM update Interrupt source
-  *            @arg TIM_DMA_CC1: TIM Capture Compare 1 DMA source
-  *            @arg TIM_DMA_CC2: TIM Capture Compare 2 DMA source
-  *            @arg TIM_DMA_CC3: TIM Capture Compare 3 DMA source
-  *            @arg TIM_DMA_CC4: TIM Capture Compare 4 DMA source
-  *            @arg TIM_DMA_COM: TIM Commutation DMA source
-  *            @arg TIM_DMA_Trigger: TIM Trigger DMA source
-  * @param  NewState: new state of the DMA Request sources.
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+```c
+//使能定时器DMA
 void TIM_DMACmd(TIM_TypeDef* TIMx, uint16_t TIM_DMASource, FunctionalState NewState)
 { 
   /* Check the parameters */
@@ -2554,14 +1372,28 @@ void TIM_DMACmd(TIM_TypeDef* TIMx, uint16_t TIM_DMASource, FunctionalState NewSt
     TIMx->DIER &= (uint16_t)~TIM_DMASource;
   }
 }
+```
 
-/**
-  * @brief  Selects the TIMx peripheral Capture Compare DMA source.
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  NewState: new state of the Capture Compare DMA source
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 配置DMA突发传输模式（burst mode）
+
+```c
+//配置定时器DMA突发传输模式与相关设置
+void TIM_DMAConfig(TIM_TypeDef* TIMx, uint16_t TIM_DMABase, uint16_t TIM_DMABurstLength)
+{
+  /* Check the parameters */
+  assert_param(IS_TIM_LIST3_PERIPH(TIMx));
+  assert_param(IS_TIM_DMA_BASE(TIM_DMABase)); 
+  assert_param(IS_TIM_DMA_LENGTH(TIM_DMABurstLength));
+
+  /* Set the DMA Base and the DMA Burst Length */
+  TIMx->DCR = TIM_DMABase | TIM_DMABurstLength;
+}
+```
+
+* 选择捕获比较DMA请求
+
+```c
+//选择捕获比较DMA请求使能
 void TIM_SelectCCDMA(TIM_TypeDef* TIMx, FunctionalState NewState)
 {
   /* Check the parameters */
@@ -2579,28 +1411,16 @@ void TIM_SelectCCDMA(TIM_TypeDef* TIMx, FunctionalState NewState)
     TIMx->CR2 &= (uint16_t)~TIM_CR2_CCDS;
   }
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group6 Clocks management functions
- *  @brief    Clocks management functions
- *
-@verbatim   
- ===============================================================================
-                  ##### Clocks management functions #####
- ===============================================================================  
+### 定时器时钟管理
 
-@endverbatim
-  * @{
-  */
+这里是关于定时器时钟源的管理库函数
 
-/**
-  * @brief  Configures the TIMx internal Clock
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @retval None
-  */
+* 选择内部/外部时钟输入
+
+```c
+//配置定时器内部时钟
 void TIM_InternalClockConfig(TIM_TypeDef* TIMx)
 {
   /* Check the parameters */
@@ -2610,18 +1430,8 @@ void TIM_InternalClockConfig(TIM_TypeDef* TIMx)
   TIMx->SMCR &=  (uint16_t)~TIM_SMCR_SMS;
 }
 
-/**
-  * @brief  Configures the TIMx Internal Trigger as External Clock
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_InputTriggerSource: Trigger source.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_TS_ITR0: Internal Trigger 0
-  *            @arg TIM_TS_ITR1: Internal Trigger 1
-  *            @arg TIM_TS_ITR2: Internal Trigger 2
-  *            @arg TIM_TS_ITR3: Internal Trigger 3
-  * @retval None
-  */
+//配置定时器内部触发作为外部时钟
+//可选择TIM_TS_ITR0到3作为内部触发源
 void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource)
 {
   /* Check the parameters */
@@ -2635,23 +1445,7 @@ void TIM_ITRxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSou
   TIMx->SMCR |= TIM_SlaveMode_External1;
 }
 
-/**
-  * @brief  Configures the TIMx Trigger as External Clock
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 or 14  
-  *         to select the TIM peripheral.
-  * @param  TIM_TIxExternalCLKSource: Trigger source.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_TIxExternalCLK1Source_TI1ED: TI1 Edge Detector
-  *            @arg TIM_TIxExternalCLK1Source_TI1: Filtered Timer Input 1
-  *            @arg TIM_TIxExternalCLK1Source_TI2: Filtered Timer Input 2
-  * @param  TIM_ICPolarity: specifies the TIx Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Rising
-  *            @arg TIM_ICPolarity_Falling
-  * @param  ICFilter: specifies the filter value.
-  *          This parameter must be a value between 0x0 and 0xF.
-  * @retval None
-  */
+//配置定时器触发器作为外部时钟源
 void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_TIxExternalCLKSource,
                                 uint16_t TIM_ICPolarity, uint16_t ICFilter)
 {
@@ -2674,24 +1468,12 @@ void TIM_TIxExternalClockConfig(TIM_TypeDef* TIMx, uint16_t TIM_TIxExternalCLKSo
   /* Select the External clock mode1 */
   TIMx->SMCR |= TIM_SlaveMode_External1;
 }
+```
 
-/**
-  * @brief  Configures the External clock Mode1
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ExtTRGPrescaler: The external Trigger Prescaler.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPSC_OFF: ETRP Prescaler OFF.
-  *            @arg TIM_ExtTRGPSC_DIV2: ETRP frequency divided by 2.
-  *            @arg TIM_ExtTRGPSC_DIV4: ETRP frequency divided by 4.
-  *            @arg TIM_ExtTRGPSC_DIV8: ETRP frequency divided by 8.
-  * @param  TIM_ExtTRGPolarity: The external Trigger Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPolarity_Inverted: active low or falling edge active.
-  *            @arg TIM_ExtTRGPolarity_NonInverted: active high or rising edge active.
-  * @param  ExtTRGFilter: External Trigger Filter.
-  *          This parameter must be a value between 0x00 and 0x0F
-  * @retval None
-  */
+* 选择外部时钟模式为ETR（模式1/模式2）、TIx或ITRx
+
+```c
+//配置定时器ETR模式1
 void TIM_ETRClockMode1Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,
                             uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter)
 {
@@ -2722,23 +1504,7 @@ void TIM_ETRClockMode1Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,
   TIMx->SMCR = tmpsmcr;
 }
 
-/**
-  * @brief  Configures the External clock Mode2
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ExtTRGPrescaler: The external Trigger Prescaler.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPSC_OFF: ETRP Prescaler OFF.
-  *            @arg TIM_ExtTRGPSC_DIV2: ETRP frequency divided by 2.
-  *            @arg TIM_ExtTRGPSC_DIV4: ETRP frequency divided by 4.
-  *            @arg TIM_ExtTRGPSC_DIV8: ETRP frequency divided by 8.
-  * @param  TIM_ExtTRGPolarity: The external Trigger Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPolarity_Inverted: active low or falling edge active.
-  *            @arg TIM_ExtTRGPolarity_NonInverted: active high or rising edge active.
-  * @param  ExtTRGFilter: External Trigger Filter.
-  *          This parameter must be a value between 0x00 and 0x0F
-  * @retval None
-  */
+//配置ETR模式2
 void TIM_ETRClockMode2Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, 
                              uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter)
 {
@@ -2754,62 +1520,29 @@ void TIM_ETRClockMode2Config(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,
   /* Enable the External clock mode2 */
   TIMx->SMCR |= TIM_SMCR_ECE;
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group7 Synchronization management functions
- *  @brief    Synchronization management functions 
- *
-@verbatim   
- ===============================================================================
-                ##### Synchronization management functions #####
- ===============================================================================  
-                         
-          ##### TIM Driver: how to use it in synchronization Mode #####
- ===============================================================================
-    [..] 
-    
-    *** Case of two/several Timers ***
-    ==================================
-    [..]
-      (#) Configure the Master Timers using the following functions:
-        (++) void TIM_SelectOutputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_TRGOSource); 
-        (++) void TIM_SelectMasterSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_MasterSlaveMode);  
-      (#) Configure the Slave Timers using the following functions: 
-        (++) void TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource);  
-        (++) void TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode); 
-          
-    *** Case of Timers and external trigger(ETR pin) ***
-    ====================================================
-    [..]           
-      (#) Configure the External trigger using this function:
-        (++) void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity,
-                               uint16_t ExtTRGFilter);
-      (#) Configure the Slave Timers using the following functions: 
-        (++) void TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource);  
-        (++) void TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode); 
+### 定时器同步管理
 
-@endverbatim
-  * @{
-  */
+STM32中部分定时器可以实现同步功能，这里是相关的同步管理库函数
 
-/**
-  * @brief  Selects the Input Trigger source
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 or 14  
-  *         to select the TIM peripheral.
-  * @param  TIM_InputTriggerSource: The Input Trigger source.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_TS_ITR0: Internal Trigger 0
-  *            @arg TIM_TS_ITR1: Internal Trigger 1
-  *            @arg TIM_TS_ITR2: Internal Trigger 2
-  *            @arg TIM_TS_ITR3: Internal Trigger 3
-  *            @arg TIM_TS_TI1F_ED: TI1 Edge Detector
-  *            @arg TIM_TS_TI1FP1: Filtered Timer Input 1
-  *            @arg TIM_TS_TI2FP2: Filtered Timer Input 2
-  *            @arg TIM_TS_ETRF: External Trigger input
-  * @retval None
-  */
+基本配置方法如下所示：
+
+> 两个/多个定时器可进行串连、同步、交错等多种配置，需要以下步骤：
+>
+> 1. 使用下面的两个函数配置主定时器：
+>    * TIM_SelectOutputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_TRGOSource)选择输出触发源
+>    * TIM_SelectMasterSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_MasterSlaveMode)选择当前定时器模式为主从模式
+> 2. 使用下面的函数配置从定时器：
+>    * TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource)选择触发源输入
+>    * TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode)选择当前定时器模式为从模式
+> 3. 这样从定时器就会被连接到主定时器的触发器，接收主定时器控制
+> 4. 使用TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler, uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter)函数配置定时器的外部触发源，可实现由外部信号控制定时器
+> 5. 配合TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource)与TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode)函数，可以让定时器接收外部信号并作为从模式工作
+
+* 选择输入触发信号
+
+```c
 void TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource)
 {
   uint16_t tmpsmcr = 0;
@@ -2830,29 +1563,11 @@ void TIM_SelectInputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_InputTriggerSource)
   /* Write to TIMx SMCR */
   TIMx->SMCR = tmpsmcr;
 }
+```
 
-/**
-  * @brief  Selects the TIMx Trigger Output Mode.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 6, 7 or 8 to select the TIM peripheral.
-  *     
-  * @param  TIM_TRGOSource: specifies the Trigger Output source.
-  *   This parameter can be one of the following values:
-  *
-  *  - For all TIMx
-  *            @arg TIM_TRGOSource_Reset:  The UG bit in the TIM_EGR register is used as the trigger output(TRGO)
-  *            @arg TIM_TRGOSource_Enable: The Counter Enable CEN is used as the trigger output(TRGO)
-  *            @arg TIM_TRGOSource_Update: The update event is selected as the trigger output(TRGO)
-  *
-  *  - For all TIMx except TIM6 and TIM7
-  *            @arg TIM_TRGOSource_OC1: The trigger output sends a positive pulse when the CC1IF flag
-  *                                     is to be set, as soon as a capture or compare match occurs(TRGO)
-  *            @arg TIM_TRGOSource_OC1Ref: OC1REF signal is used as the trigger output(TRGO)
-  *            @arg TIM_TRGOSource_OC2Ref: OC2REF signal is used as the trigger output(TRGO)
-  *            @arg TIM_TRGOSource_OC3Ref: OC3REF signal is used as the trigger output(TRGO)
-  *            @arg TIM_TRGOSource_OC4Ref: OC4REF signal is used as the trigger output(TRGO)
-  *
-  * @retval None
-  */
+* 选择输出触发信号
+
+```c
 void TIM_SelectOutputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_TRGOSource)
 {
   /* Check the parameters */
@@ -2864,19 +1579,12 @@ void TIM_SelectOutputTrigger(TIM_TypeDef* TIMx, uint16_t TIM_TRGOSource)
   /* Select the TRGO source */
   TIMx->CR2 |=  TIM_TRGOSource;
 }
+```
 
-/**
-  * @brief  Selects the TIMx Slave Mode.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM peripheral.
-  * @param  TIM_SlaveMode: specifies the Timer Slave Mode.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_SlaveMode_Reset: Rising edge of the selected trigger signal(TRGI) reinitialize 
-  *                                      the counter and triggers an update of the registers
-  *            @arg TIM_SlaveMode_Gated:     The counter clock is enabled when the trigger signal (TRGI) is high
-  *            @arg TIM_SlaveMode_Trigger:   The counter starts at a rising edge of the trigger TRGI
-  *            @arg TIM_SlaveMode_External1: Rising edges of the selected trigger (TRGI) clock the counter
-  * @retval None
-  */
+* 选择主从模式
+
+```c
+//设置定时器为从模式
 void TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode)
 {
   /* Check the parameters */
@@ -2890,16 +1598,7 @@ void TIM_SelectSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_SlaveMode)
   TIMx->SMCR |= TIM_SlaveMode;
 }
 
-/**
-  * @brief  Sets or Resets the TIMx Master/Slave Mode.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM peripheral.
-  * @param  TIM_MasterSlaveMode: specifies the Timer Master Slave Mode.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_MasterSlaveMode_Enable: synchronization between the current timer
-  *                                             and its slaves (through TRGO)
-  *            @arg TIM_MasterSlaveMode_Disable: No action
-  * @retval None
-  */
+//设置定时器为主/从模式
 void TIM_SelectMasterSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_MasterSlaveMode)
 {
   /* Check the parameters */
@@ -2912,24 +1611,12 @@ void TIM_SelectMasterSlaveMode(TIM_TypeDef* TIMx, uint16_t TIM_MasterSlaveMode)
   /* Set or Reset the MSM Bit */
   TIMx->SMCR |= TIM_MasterSlaveMode;
 }
+```
 
-/**
-  * @brief  Configures the TIMx External Trigger (ETR).
-  * @param  TIMx: where x can be  1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ExtTRGPrescaler: The external Trigger Prescaler.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPSC_OFF: ETRP Prescaler OFF.
-  *            @arg TIM_ExtTRGPSC_DIV2: ETRP frequency divided by 2.
-  *            @arg TIM_ExtTRGPSC_DIV4: ETRP frequency divided by 4.
-  *            @arg TIM_ExtTRGPSC_DIV8: ETRP frequency divided by 8.
-  * @param  TIM_ExtTRGPolarity: The external Trigger Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ExtTRGPolarity_Inverted: active low or falling edge active.
-  *            @arg TIM_ExtTRGPolarity_NonInverted: active high or rising edge active.
-  * @param  ExtTRGFilter: External Trigger Filter.
-  *          This parameter must be a value between 0x00 and 0x0F
-  * @retval None
-  */
+* 当作为外部触发使用时进行ETR配置
+
+```c
+//设置定时器外部触发模式（ETR）
 void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,
                    uint16_t TIM_ExtTRGPolarity, uint16_t ExtTRGFilter)
 {
@@ -2952,42 +1639,15 @@ void TIM_ETRConfig(TIM_TypeDef* TIMx, uint16_t TIM_ExtTRGPrescaler,
   /* Write to TIMx SMCR */
   TIMx->SMCR = tmpsmcr;
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group8 Specific interface management functions
- *  @brief    Specific interface management functions 
- *
-@verbatim   
- ===============================================================================
-            ##### Specific interface management functions #####
- ===============================================================================  
+### 定时器特殊结构管理
 
-@endverbatim
-  * @{
-  */
+定时器也可以作为特殊设备的接口使用，ST也提供了这样用法的库函数
 
-/**
-  * @brief  Configures the TIMx Encoder Interface.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_EncoderMode: specifies the TIMx Encoder Mode.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_EncoderMode_TI1: Counter counts on TI1FP1 edge depending on TI2FP2 level.
-  *            @arg TIM_EncoderMode_TI2: Counter counts on TI2FP2 edge depending on TI1FP1 level.
-  *            @arg TIM_EncoderMode_TI12: Counter counts on both TI1FP1 and TI2FP2 edges depending
-  *                                       on the level of the other input.
-  * @param  TIM_IC1Polarity: specifies the IC1 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Falling: IC Falling edge.
-  *            @arg TIM_ICPolarity_Rising: IC Rising edge.
-  * @param  TIM_IC2Polarity: specifies the IC2 Polarity
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Falling: IC Falling edge.
-  *            @arg TIM_ICPolarity_Rising: IC Rising edge.
-  * @retval None
-  */
+* 解码器接口配置
+
+```c
 void TIM_EncoderInterfaceConfig(TIM_TypeDef* TIMx, uint16_t TIM_EncoderMode,
                                 uint16_t TIM_IC1Polarity, uint16_t TIM_IC2Polarity)
 {
@@ -3031,15 +1691,11 @@ void TIM_EncoderInterfaceConfig(TIM_TypeDef* TIMx, uint16_t TIM_EncoderMode,
   /* Write to TIMx CCER */
   TIMx->CCER = tmpccer;
 }
+```
 
-/**
-  * @brief  Enables or disables the TIMx's Hall sensor interface.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  NewState: new state of the TIMx Hall sensor interface.
-  *          This parameter can be: ENABLE or DISABLE.
-  * @retval None
-  */
+* 选择Hall Sensor
+
+```c
 void TIM_SelectHallSensor(TIM_TypeDef* TIMx, FunctionalState NewState)
 {
   /* Check the parameters */
@@ -3057,40 +1713,14 @@ void TIM_SelectHallSensor(TIM_TypeDef* TIMx, FunctionalState NewState)
     TIMx->CR2 &= (uint16_t)~TIM_CR2_TI1S;
   }
 }
-/**
-  * @}
-  */
+```
 
-/** @defgroup TIM_Group9 Specific remapping management function
- *  @brief   Specific remapping management function
- *
-@verbatim   
- ===============================================================================
-              ##### Specific remapping management function #####
- ===============================================================================  
+### 定时器特殊重映射配置
 
-@endverbatim
-  * @{
-  */
+一些定时器能够被重映射为特殊的配置端口，这里是该功能的管理库函数
 
-/**
-  * @brief  Configures the TIM2, TIM5 and TIM11 Remapping input capabilities.
-  * @param  TIMx: where x can be 2, 5 or 11 to select the TIM peripheral.
-  * @param  TIM_Remap: specifies the TIM input remapping source.
-  *          This parameter can be one of the following values:
-  *            @arg TIM2_TIM8_TRGO: TIM2 ITR1 input is connected to TIM8 Trigger output(default)
-  *            @arg TIM2_ETH_PTP:   TIM2 ITR1 input is connected to ETH PTP trogger output.
-  *            @arg TIM2_USBFS_SOF: TIM2 ITR1 input is connected to USB FS SOF. 
-  *            @arg TIM2_USBHS_SOF: TIM2 ITR1 input is connected to USB HS SOF. 
-  *            @arg TIM5_GPIO:      TIM5 CH4 input is connected to dedicated Timer pin(default)
-  *            @arg TIM5_LSI:       TIM5 CH4 input is connected to LSI clock.
-  *            @arg TIM5_LSE:       TIM5 CH4 input is connected to LSE clock.
-  *            @arg TIM5_RTC:       TIM5 CH4 input is connected to RTC Output event.
-  *            @arg TIM11_GPIO:     TIM11 CH4 input is connected to dedicated Timer pin(default) 
-  *            @arg TIM11_HSE:      TIM11 CH4 input is connected to HSE_RTC clock
-  *                                 (HSE divided by a programmable prescaler)  
-  * @retval None
-  */
+```c
+//配置定时器重映射端口
 void TIM_RemapConfig(TIM_TypeDef* TIMx, uint16_t TIM_Remap)
 {
  /* Check the parameters */
@@ -3100,28 +1730,8 @@ void TIM_RemapConfig(TIM_TypeDef* TIMx, uint16_t TIM_Remap)
   /* Set the Timer remapping configuration */
   TIMx->OR =  TIM_Remap;
 }
-/**
-  * @}
-  */
 
-/**
-  * @brief  Configure the TI1 as Input.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9, 10, 11, 12, 13 or 14 
-  *         to select the TIM peripheral.
-  * @param  TIM_ICPolarity : The Input Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Rising
-  *            @arg TIM_ICPolarity_Falling
-  *            @arg TIM_ICPolarity_BothEdge  
-  * @param  TIM_ICSelection: specifies the input to be used.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICSelection_DirectTI: TIM Input 1 is selected to be connected to IC1.
-  *            @arg TIM_ICSelection_IndirectTI: TIM Input 1 is selected to be connected to IC2.
-  *            @arg TIM_ICSelection_TRC: TIM Input 1 is selected to be connected to TRC.
-  * @param  TIM_ICFilter: Specifies the Input Capture Filter.
-  *          This parameter must be a value between 0x00 and 0x0F.
-  * @retval None
-  */
+//配置TI1、2、3、4作为输入，这里仅列出TI1的库函数
 static void TI1_Config(TIM_TypeDef* TIMx, uint16_t TIM_ICPolarity, uint16_t TIM_ICSelection,
                        uint16_t TIM_ICFilter)
 {
@@ -3144,131 +1754,4 @@ static void TI1_Config(TIM_TypeDef* TIMx, uint16_t TIM_ICPolarity, uint16_t TIM_
   TIMx->CCMR1 = tmpccmr1;
   TIMx->CCER = tmpccer;
 }
-
-/**
-  * @brief  Configure the TI2 as Input.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5, 8, 9 or 12 to select the TIM 
-  *         peripheral.
-  * @param  TIM_ICPolarity : The Input Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Rising
-  *            @arg TIM_ICPolarity_Falling
-  *            @arg TIM_ICPolarity_BothEdge   
-  * @param  TIM_ICSelection: specifies the input to be used.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICSelection_DirectTI: TIM Input 2 is selected to be connected to IC2.
-  *            @arg TIM_ICSelection_IndirectTI: TIM Input 2 is selected to be connected to IC1.
-  *            @arg TIM_ICSelection_TRC: TIM Input 2 is selected to be connected to TRC.
-  * @param  TIM_ICFilter: Specifies the Input Capture Filter.
-  *          This parameter must be a value between 0x00 and 0x0F.
-  * @retval None
-  */
-static void TI2_Config(TIM_TypeDef* TIMx, uint16_t TIM_ICPolarity, uint16_t TIM_ICSelection,
-                       uint16_t TIM_ICFilter)
-{
-  uint16_t tmpccmr1 = 0, tmpccer = 0, tmp = 0;
-
-  /* Disable the Channel 2: Reset the CC2E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC2E;
-  tmpccmr1 = TIMx->CCMR1;
-  tmpccer = TIMx->CCER;
-  tmp = (uint16_t)(TIM_ICPolarity << 4);
-
-  /* Select the Input and set the filter */
-  tmpccmr1 &= ((uint16_t)~TIM_CCMR1_CC2S) & ((uint16_t)~TIM_CCMR1_IC2F);
-  tmpccmr1 |= (uint16_t)(TIM_ICFilter << 12);
-  tmpccmr1 |= (uint16_t)(TIM_ICSelection << 8);
-
-  /* Select the Polarity and set the CC2E Bit */
-  tmpccer &= (uint16_t)~(TIM_CCER_CC2P | TIM_CCER_CC2NP);
-  tmpccer |=  (uint16_t)(tmp | (uint16_t)TIM_CCER_CC2E);
-
-  /* Write to TIMx CCMR1 and CCER registers */
-  TIMx->CCMR1 = tmpccmr1 ;
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configure the TI3 as Input.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ICPolarity : The Input Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Rising
-  *            @arg TIM_ICPolarity_Falling
-  *            @arg TIM_ICPolarity_BothEdge         
-  * @param  TIM_ICSelection: specifies the input to be used.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICSelection_DirectTI: TIM Input 3 is selected to be connected to IC3.
-  *            @arg TIM_ICSelection_IndirectTI: TIM Input 3 is selected to be connected to IC4.
-  *            @arg TIM_ICSelection_TRC: TIM Input 3 is selected to be connected to TRC.
-  * @param  TIM_ICFilter: Specifies the Input Capture Filter.
-  *          This parameter must be a value between 0x00 and 0x0F.
-  * @retval None
-  */
-static void TI3_Config(TIM_TypeDef* TIMx, uint16_t TIM_ICPolarity, uint16_t TIM_ICSelection,
-                       uint16_t TIM_ICFilter)
-{
-  uint16_t tmpccmr2 = 0, tmpccer = 0, tmp = 0;
-
-  /* Disable the Channel 3: Reset the CC3E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC3E;
-  tmpccmr2 = TIMx->CCMR2;
-  tmpccer = TIMx->CCER;
-  tmp = (uint16_t)(TIM_ICPolarity << 8);
-
-  /* Select the Input and set the filter */
-  tmpccmr2 &= ((uint16_t)~TIM_CCMR1_CC1S) & ((uint16_t)~TIM_CCMR2_IC3F);
-  tmpccmr2 |= (uint16_t)(TIM_ICSelection | (uint16_t)(TIM_ICFilter << (uint16_t)4));
-
-  /* Select the Polarity and set the CC3E Bit */
-  tmpccer &= (uint16_t)~(TIM_CCER_CC3P | TIM_CCER_CC3NP);
-  tmpccer |= (uint16_t)(tmp | (uint16_t)TIM_CCER_CC3E);
-
-  /* Write to TIMx CCMR2 and CCER registers */
-  TIMx->CCMR2 = tmpccmr2;
-  TIMx->CCER = tmpccer;
-}
-
-/**
-  * @brief  Configure the TI4 as Input.
-  * @param  TIMx: where x can be 1, 2, 3, 4, 5 or 8 to select the TIM peripheral.
-  * @param  TIM_ICPolarity : The Input Polarity.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICPolarity_Rising
-  *            @arg TIM_ICPolarity_Falling
-  *            @arg TIM_ICPolarity_BothEdge     
-  * @param  TIM_ICSelection: specifies the input to be used.
-  *          This parameter can be one of the following values:
-  *            @arg TIM_ICSelection_DirectTI: TIM Input 4 is selected to be connected to IC4.
-  *            @arg TIM_ICSelection_IndirectTI: TIM Input 4 is selected to be connected to IC3.
-  *            @arg TIM_ICSelection_TRC: TIM Input 4 is selected to be connected to TRC.
-  * @param  TIM_ICFilter: Specifies the Input Capture Filter.
-  *          This parameter must be a value between 0x00 and 0x0F.
-  * @retval None
-  */
-static void TI4_Config(TIM_TypeDef* TIMx, uint16_t TIM_ICPolarity, uint16_t TIM_ICSelection,
-                       uint16_t TIM_ICFilter)
-{
-  uint16_t tmpccmr2 = 0, tmpccer = 0, tmp = 0;
-
-  /* Disable the Channel 4: Reset the CC4E Bit */
-  TIMx->CCER &= (uint16_t)~TIM_CCER_CC4E;
-  tmpccmr2 = TIMx->CCMR2;
-  tmpccer = TIMx->CCER;
-  tmp = (uint16_t)(TIM_ICPolarity << 12);
-
-  /* Select the Input and set the filter */
-  tmpccmr2 &= ((uint16_t)~TIM_CCMR1_CC2S) & ((uint16_t)~TIM_CCMR1_IC2F);
-  tmpccmr2 |= (uint16_t)(TIM_ICSelection << 8);
-  tmpccmr2 |= (uint16_t)(TIM_ICFilter << 12);
-
-  /* Select the Polarity and set the CC4E Bit */
-  tmpccer &= (uint16_t)~(TIM_CCER_CC4P | TIM_CCER_CC4NP);
-  tmpccer |= (uint16_t)(tmp | (uint16_t)TIM_CCER_CC4E);
-
-  /* Write to TIMx CCMR2 and CCER registers */
-  TIMx->CCMR2 = tmpccmr2;
-  TIMx->CCER = tmpccer ;
-}
 ```
-

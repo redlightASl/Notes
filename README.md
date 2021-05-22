@@ -1,4 +1,4 @@
-# 个人学习笔记暂存
+# 个人学习笔记库
 
 到目前为止自己所写的博文与学习笔记都会保存在这里
 
@@ -12,9 +12,11 @@
 
 ### 硬广告植入
 
-欢迎到我的CSDN博客上看看，所有已经完成的博文都会发布到这里
+欢迎到我的[CSDN](https://blog.csdn.net/qq_40500005?spm=1011.2124.3001.5343)博客上看看，所有已经完成的博文都会发布到这里
 
-https://blog.csdn.net/qq_40500005?spm=1011.2124.3001.5343
+推荐使用[Typora](https://www.typora.io/)或VSCode（配合MarkDown插件）查看笔记
+
+推荐Typora主题：[针对Markdown的类LaTex排版](https://github.com/yfzhao20/Typora-markdown)
 
 # Personal Notes Repository
 
@@ -22,4 +24,6 @@ All my notes will be upload to this remote repository,including a lot of "cookie
 
 Update irregularly!
 
-All of my notes in this repository were edit by **Typora** and **VSCode**,It was recommended to check them using a editor which supports *Markdown* and *LaTex*
+All of my notes in this repository were edited by **Typora** and **VSCode**,It was recommended to check them using a editor which supports *Markdown* and *LaTex*
+
+It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/) or **VSCode**.Besides,here's an interesting [theme](https://github.com/yfzhao20/Typora-markdown) for Typora,enjoy it!

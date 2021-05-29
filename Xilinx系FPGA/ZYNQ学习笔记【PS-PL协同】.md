@@ -11,7 +11,7 @@ EMIO就是Extendable MIO，当PS部分的MIO对应片上引脚不够用时，就
 
 **EMIO实际上是PS端和PL端之间的接口**，可以让PS端的外设使用PL端的引脚、FPGA外设模块等
 
-![image-20210502170237761](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210502170237761.png)
+![image-20210502170237761](ZYNQ学习笔记【PS-PL协同】.assets/image-20210502170237761.png)
 
 ## EMIO与MIO之间的差异
 
@@ -19,7 +19,7 @@ EMIO就是Extendable MIO，当PS部分的MIO对应片上引脚不够用时，就
 2. MIO的输出在OEN寄存器配置为1时保持高阻态；EMIO的输出直接连接到PL端，高阻态的配置与OEN无关
 3. EMIO的OEN被接入PL端，通过PL端硬件逻辑控制EMIO的OEN信号
 
-![image-20210502170912584](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210502170912584.png)
+![image-20210502170912584](ZYNQ学习笔记【PS-PL协同】.assets/image-20210502170912584.png)
 
 ## 通过EMIO点亮LED
 

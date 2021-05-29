@@ -10,7 +10,7 @@
 
 基本电路图如下所示：
 
-![image-20210415214054864](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210415214054864.png)
+![image-20210415214054864](STM32F4深入学习_GPIO.assets/image-20210415214054864.png)
 
 主要分为以下几个部分
 

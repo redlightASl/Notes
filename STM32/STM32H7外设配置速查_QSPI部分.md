@@ -1214,11 +1214,11 @@ QSPI_Status=QSPI_W25Qxx_ReadBuffer(W25Qxx_ReadBuffer,W25Qxx_TestAddr,W25Qxx_NumB
 
 详见芯片手册
 
-![W25Q64(3)](D:\桌面文件夹\学习\oureda\stm32\stm32h7xx\W25Q64(3).jpg)
+![W25Q64(3)](STM32H7外设配置速查_QSPI部分.assets/W25Q64(3).jpg)
 
-![W25Q64(1)](D:\桌面文件夹\学习\oureda\stm32\stm32h7xx\W25Q64(1).jpg)
+![W25Q64(1)](STM32H7外设配置速查_QSPI部分.assets/W25Q64(1).jpg)
 
-![W25Q64(2)](D:\桌面文件夹\学习\oureda\stm32\stm32h7xx\W25Q64(2).jpg)
+![W25Q64(2)](STM32H7外设配置速查_QSPI部分.assets/W25Q64(2).jpg)
 
 * 支持标准摩托罗拉SPI协议
 * 支持双线/四线SPI，通过写入IC内部的控制寄存器相关控制位，可将WP和Hold引脚作为IO2、IO3使用

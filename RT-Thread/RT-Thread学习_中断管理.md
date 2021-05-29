@@ -35,7 +35,7 @@ MSR CONTROL,R0 ; 写入R0到CONTROL
 
 Cortex-M系列CPU具有线程模式和处理模式，**CPU正常运行在线程模式，当且仅当进入异常或中断处理的情况下进入处理模式**；具有特权级别和用户级别，**线程模式可以工作在特权级或用户级，但处理模式总工作在特权级**
 
-![image-20210123120850699](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210123120850699.png)
+![image-20210123120850699](RT-Thread学习_中断管理.assets/image-20210123120850699.png)
 
 可通过CONTROL寄存器控制CPU工作模式和特权级别
 
@@ -59,13 +59,13 @@ Cortex-M系列CPU具有线程模式和处理模式，**CPU正常运行在线程�
 
 第一步称为“保护现场”，其中的入栈顺序如下图所示。注意**R0-R3、R12时最后被入栈的——这样可以更容易地使用sp基地址来索引寻址**
 
-![image-20210123121848639](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210123121848639.png)
+![image-20210123121848639](RT-Thread学习_中断管理.assets/image-20210123121848639.png)
 
 因为流水线操作，I-Code总线（指令总线）在系统总线（数据总线）执行入栈的**同时**从向量表中找出正确的异常向量，然后在服务程序的入口**预取指**
 
 第二步统称“更新寄存器”，其中寄存器的变化如下图所示
 
-![image-20210123122506676](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210123122506676.png)
+![image-20210123122506676](RT-Thread学习_中断管理.assets/image-20210123122506676.png)
 
 第四步的作用是通知CPU“没想到吧！我从地狱回来了！”，在编写程序时直接把EXC_RETURN写入PC来让CPU识别到返回动作，可以使用以下任意返回指令之一，不需要使用如51常用的__interupt这种编译器指令
 
@@ -211,7 +211,7 @@ void rt_interrupt_leave(void)
 
 流程框图如下所示，源代码同rt_hw_context_switch_interrupt()，但实际的切换动作由不同的中断服务函数完成
 
-![image-20210123133938116](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210123133938116.png)
+![image-20210123133938116](RT-Thread学习_中断管理.assets/image-20210123133938116.png)
 
 **RTT也支持中断嵌套**
 

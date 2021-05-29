@@ -6,7 +6,7 @@
 
 系统的SoC设计如下图所示
 
-![http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png](http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png)
+![http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png](RISC-V学习笔记【配套SoC简介】.assets/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png)
 
 ## 总线
 

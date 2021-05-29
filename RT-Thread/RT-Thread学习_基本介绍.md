@@ -16,7 +16,7 @@
 
 内核最小资源占用：3KB ROM 1.2KB RAM
 
-![image-20210104163844358](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210104163844358.png)
+![image-20210104163844358](RT-Thread学习_基本介绍.assets/image-20210104163844358.png)
 
 ## 线程调度
 
@@ -122,7 +122,7 @@ ROM Size包括Code、RO data、RW data，表示烧写程序所占用的FLASH大�
 
 程序经过编译后生成的bin或hex文件称为**可执行映像文件**，包含RO段（包括Code、RO-data）和RW段（包括RW-data，ZI-data不包含在映像文件中），它们被存储在FLASH中。stm32上电后默认从FLASH启动，启动后会将RW段的RW-data搬运到RAM中，但不会搬运RO段，另外根据编译器给出的ZI地址和大小分配出ZI段，并将这块RAM区域清零。即**CPU从FLASH读取执行代码，从RAM中读取所需的数据，根据预先规定的ZI地址分配清零的ZI段，剩余RAM空间作为动态内存堆**
 
-![image-20210104151601680](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210104151601680.png)
+![image-20210104151601680](RT-Thread学习_基本介绍.assets/image-20210104151601680.png)
 
 动态内存堆用于rt_malloc()申请内存
 
@@ -173,7 +173,7 @@ ROM Size包括Code、RO data、RW data，表示烧写程序所占用的FLASH大�
 
 **对象容器**包含了每类对象的信息，包括对象类型、大小等。对象容器给每类内核对象分配一个链表，所有内核对象都被链接到该链表上
 
-![image-20210104163823932](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210104163823932.png)
+![image-20210104163823932](RT-Thread学习_基本介绍.assets/image-20210104163823932.png)
 
 对于每一种具体内核对象和对象控制块，除了基本结构外，还有自己的扩展属性（**私有属性**），可认为==每一种具体对象是抽象对象的派生，继承了基本对象的属性并在此基础上扩展了与自己相关的属性==
 

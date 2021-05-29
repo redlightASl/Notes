@@ -39,13 +39,13 @@
 
 完成创建后，选择【Tools】-【Create and Package New IP】
 
-![image-20210511132753582](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511132753582.png)
+![image-20210511132753582](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511132753582.png)
 
 如果准备创建一个单独的IP，可以直接Next，相关内容在下一部分介绍；在这里因为准备创建的项目需要使用到AXI4接口与硬核交互，所以选择最后这个选项
 
 设置IP核名称后如下图进行AXI接口设置
 
-![image-20210511162506573](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511162506573.png)
+![image-20210511162506573](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511162506573.png)
 
 其中AXI接口有三种类型：
 
@@ -60,7 +60,7 @@
 
 完成设置后可以看到右侧User Repository中出现了自定义IP核
 
-![image-20210511162609747](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511162609747.png)
+![image-20210511162609747](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511162609747.png)
 
 这里右键IP核，选择【Edit in IP Packager】，之后Vivado会打开一个新界面用于管理IP核的RTL代码
 
@@ -346,13 +346,13 @@ breath_LED_IP_v1_0_S0_AXI # (
 
 其中在【Customization Parameters】菜单下会出现“更新参数”的选项提示，更新后会现多出一行自定义的参数，双击它如下图进行设置，即可将这个参数反映到IP可视化界面
 
-![image-20210511201028511](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511201028511.png)
+![image-20210511201028511](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511201028511.png)
 
 完成所有设置并确认无误后，即可在最后选项【Review and Package】中点击【Re-Package IP】即可封装IP
 
 关闭项目后可以在原来的Vivado窗口中看到如下显示
 
-![image-20210511201745806](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511201745806.png)
+![image-20210511201745806](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511201745806.png)
 
 证明完成了IP封装
 
@@ -368,7 +368,7 @@ breath_LED_IP_v1_0_S0_AXI # (
 
 如下图对IP核进行设置
 
-![image-20210511204531656](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511204531656.png)
+![image-20210511204531656](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511204531656.png)
 
 设置ZYNQ系统的DDR控制器和外设后，先进行自动生成原理图，再进行自动布线即可
 
@@ -384,7 +384,7 @@ breath_LED_IP_v1_0_S0_AXI # (
 
 根据手头的开发板选择引出引脚即可
 
-![image-20210511210615915](F:\Git_repository\Notes\Xilinx系FPGA\FPGA学习笔记【封装自定义IP核】.assets\image-20210511210615915.png)
+![image-20210511210615915](.\FPGA学习笔记【封装自定义IP核】.assets\image-20210511210615915.png)
 
 这里选用的是PL Bank的P15引脚
 

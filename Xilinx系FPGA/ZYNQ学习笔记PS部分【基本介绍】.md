@@ -4,7 +4,7 @@ Xilinx Zynq SoC 是集成了FPGA和硬核处理器的特殊SoC，它与一般FPG
 
 下图为Zynq-7000系列SoC的系统框图
 
-![image-20210427121603584](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210427121603584.png)
+![image-20210427121603584](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210427121603584.png)
 
 ## 自顶向下方法
 
@@ -72,11 +72,11 @@ UART向上位机发送“hello world”字符串
 
 在管理视图中添加**zynq processing system**即可将Zynq片上的PS部分以预设IP的形式添加到工程
 
-![image-20210425133559294](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425133559294.png)
+![image-20210425133559294](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425133559294.png)
 
 该IP核相关的配置文件被自动生成保存在Design部分，通过图形界面进行配置
 
-![image-20210425133852556](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425133852556.png)
+![image-20210425133852556](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425133852556.png)
 
 ### 配置工程
 
@@ -93,7 +93,7 @@ UART向上位机发送“hello world”字符串
 
 ### PS块接口与外设简介
 
-![image-20210425135613707](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425135613707.png)
+![image-20210425135613707](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425135613707.png)
 
 1. PS部分的MIO是固定的，但可以选择连接到其上的不同外设，这就类似于典型MCU的“GPIO复用”
 2. PS模块具有2个连接到引脚的MIO bank和2个连接到PL端的EMIO bank
@@ -101,7 +101,7 @@ UART向上位机发送“hello world”字符串
 
 ### 配置DDR控制器
 
-![image-20210425140320428](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425140320428.png)
+![image-20210425140320428](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425140320428.png)
 
 选择内存部件型号为`MT41J256M16 RE-125`表示搭载DDR内存容量为8GB
 
@@ -116,17 +116,17 @@ UART向上位机发送“hello world”字符串
 由于我选用的开发板是将MIO14和MIO15连接到了UART口，所以在这里选用对应14、15号引脚的UART0。注意：对
 于其他型号的开发板，串口使用的MIO引脚可能不同
 
-![image-20210425141050105](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425141050105.png)
+![image-20210425141050105](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425141050105.png)
 
 在【MIO Configuration】中可以查看详细的外设配置
 
 这里甚至可以选择IO电平标准，相当灵活
 
-![image-20210425141310035](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425141310035.png)
+![image-20210425141310035](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425141310035.png)
 
 在【PS-PL Configuration】中可进行有关串口波特率、AXI接口、DMA等关于PS和PL部分通讯/协同工作的设置
 
-![image-20210425141448740](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425141448740.png)
+![image-20210425141448740](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425141448740.png)
 
 这里并不进行更改
 
@@ -134,7 +134,7 @@ UART向上位机发送“hello world”字符串
 
 在【Clock Configuration】中可以配置时钟选项，这里并不涉及降频、超频或更改外设时钟等操作，所以保持默认
 
-![image-20210425142526379](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425142526379.png)
+![image-20210425142526379](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425142526379.png)
 
 这里面最重要的就是Input Frequency（33.3333），这里表示的就是ZYNQ的PS端输入时钟，直接由外部晶振接入
 
@@ -144,13 +144,13 @@ UART向上位机发送“hello world”字符串
 2. 在【PS-PL Configuration】-【General】-【Enable Clock Resets】中取消勾选FCLK_RESET0_N
 3. 在【Clock Configuration】中取消选择【PL Fabric Clocks】下属FCLK_CLK0时钟
 
-![image-20210425142749069](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425142749069.png)
+![image-20210425142749069](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425142749069.png)
 
 ### 完成生成
 
 配置完成后得到模块如下所示：
 
-![image-20210425143004771](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425143004771.png)
+![image-20210425143004771](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425143004771.png)
 
 点击Run Block Automation进行生成
 
@@ -160,11 +160,11 @@ UART向上位机发送“hello world”字符串
 
 生成后得到的顶层文件和底层IP的HDL代码都保存在【Sources】-【IP Sources】目录下，包括综合、实现、仿真三部分代码
 
-![image-20210425143945140](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425143945140.png)
+![image-20210425143945140](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425143945140.png)
 
 右键配置文件选择【Create HDL Wrapper】进行HDL文件的封装，**生成顶层文件**，这会方便以后对工程进行修改
 
-![image-20210425144111568](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425144111568.png)
+![image-20210425144111568](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425144111568.png)
 
 可以选择用户自定义或vivado自动管理两种方式，为了方便这里选用后一种
 
@@ -176,11 +176,11 @@ UART向上位机发送“hello world”字符串
 
 打开后选中vivado生成的.xsa所在目录，
 
-![image-20210425230153492](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425230153492.png)
+![image-20210425230153492](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425230153492.png)
 
 1. 点击【File】-【New】-【Platform Project】
 
-![image-20210425222808283](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425222808283.png)
+![image-20210425222808283](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425222808283.png)
 
 如上图选择.xsa所在目录
 
@@ -188,15 +188,15 @@ UART向上位机发送“hello world”字符串
 
 2. 点击【File】-【New】-【Application Project】
 
-![image-20210425223218722](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425223218722.png)
+![image-20210425223218722](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425223218722.png)
 
 一路next后输入Project名字
 
-![image-20210425223457943](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425223457943.png)
+![image-20210425223457943](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425223457943.png)
 
 可以直接选用Hello World工程或Empty Application工程
 
-![image-20210425223523049](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425223523049.png)
+![image-20210425223523049](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425223523049.png)
 
 通过Hello World工程创建的工程文件如下
 
@@ -234,11 +234,11 @@ int main(void)
 3. 连接开发板的JTAG和串口到PC
 4. 编译完毕后如下图右键点击项目运行
 
-![image-20210425224955954](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425224955954.png)
+![image-20210425224955954](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425224955954.png)
 
 5. 完成后结果如下
 
-![image-20210425224935816](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210425224935816.png)
+![image-20210425224935816](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210425224935816.png)
 
 下载完成后板载PL端DONE LED不会点亮，因为这个LED指示的仅仅是PL端烧录，该部分并未涉及到PL端资源
 
@@ -355,7 +355,7 @@ GPIO详细内容可参考Xilinx Zynq-7000 系列技术参考手册（代号为**
 
 下图给出了ZYNQ的基本架构
 
-![image-20210427121603584](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210427121603584.png)
+![image-20210427121603584](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210427121603584-1622261978102.png)
 
 **ZYNQ说简单点就是个带FPGA的STM32**，在ZYNQ中FPGA是作为硬核的外设连接的
 
@@ -377,7 +377,7 @@ ZYNQ中的GPIO与MCU中的GPIO类似，能够进行输入/输出GPIO被分为4�
 
 ### 配置外设GPIO与IO映射并导出
 
-![image-20210430221655867](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210430221655867.png)
+![image-20210430221655867](ZYNQ学习笔记PS部分【基本介绍】.assets/image-20210430221655867.png)
 
 打开vivado的工程，双击之前创建好的ZYNQ图形，在【Peripheral IO Pins】中选择GPIO MIO
 

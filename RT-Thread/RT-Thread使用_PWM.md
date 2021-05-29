@@ -16,7 +16,7 @@
 6. 开启PWM
 7. 开始输出
 
-![image-20210225211807353](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210225211807353.png)
+![image-20210225211807353](RT-Thread使用_PWM.assets/image-20210225211807353.png)
 
 使用途中如果需要改变占空比只要在运行代码里调节k值即可，用上面这张图解释就是上下调整阈值会导致IO逻辑中的跳变沿左右移动
 

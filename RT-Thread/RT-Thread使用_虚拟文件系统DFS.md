@@ -19,7 +19,7 @@ RTT提供一套虚拟文件系统DFS，它的实现和VFS类似，但更适合�
 
 ## DFS层次结构
 
-![DFS 层次架构图](https://www.rt-thread.org/document/site/programming-manual/filesystem/figures/fs-layer.png)
+![DFS 层次架构图](RT-Thread使用_虚拟文件系统DFS.assets/fs-layer.png)
 
 ### POSIX接口层
 

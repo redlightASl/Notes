@@ -90,7 +90,7 @@ RTT的内存分配管理算法分为**内存堆管理**和**内存池管理**
 
 RTT的内存分布如下图所示
 
-![image-20210121145116731](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210121145116731.png)
+![image-20210121145116731](RT-Thread学习_内存管理.assets/image-20210121145116731.png)
 
 RTT将“ZI段结尾处”到内存尾部的空间作为内存堆使用
 
@@ -138,7 +138,7 @@ stm32上电后默认从FLASH启动，启动后会将RW段的RW-data搬运到RAM�
 
 内存块的内部结构如下图所示
 
-![image-20210121152318671](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210121152318671.png)
+![image-20210121152318671](RT-Thread学习_内存管理.assets/image-20210121152318671.png)
 
 每个内存块包含一个数据头和一个内存数据区域，通过数据头把 使用块和空闲块用双向链表链接起来
 
@@ -158,7 +158,7 @@ RTT的slab分配器建立在DragonFly BSD创始人Matthew Dillon实现的slab分
 
 RTT的slab分配器主要去掉了其中对象构造和析构过程，只保留了纯粹的缓冲型内存池算法。slab分配器会根据对象的大小分成多个区（zone）——也可以看成**每类对象有一个叫zone的内存池**，其结构如下所示
 
-![image-20210121154419342](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210121154419342.png)
+![image-20210121154419342](RT-Thread学习_内存管理.assets/image-20210121154419342.png)
 
 一个zone的大小在32KB到128KB之间（所以说这玩意很明显会把小内存淦爆），分配器会在堆初始化时**根据堆的大小自动调整zone的大小**。系统中的**zone最多包括72种对象，一次最大能够分配16KB的内存空间**，如果超出了16KB那么可以直接从页分配器中分配。每个zone上分配的内存块大小固定，能够分配相同大小内存块的zone会链接在一个链表中。72种对象的zone链表会放在数组zone_arry[]中统一管理
 
@@ -174,7 +174,7 @@ memheap管理器会创建一个memheap_item链表，将所有内存堆通过链�
 
 使用了memheap算法的设备在分配内存时，会先从默认内存堆分配；若分配不到，则会查找memheap_item链表，尝试从其他内存堆分配内存块。应用程序将不用关心当前分配的内存块地址
 
-![image-20210121183610729](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210121183610729.png)
+![image-20210121183610729](RT-Thread学习_内存管理.assets/image-20210121183610729.png)
 
 **注意：开启memheap后，原来的heap功能将被关闭，两者只可以通过打开或关闭RT_USING_MEMHEAP_AS_HEAP来选择其中之一**
 
@@ -720,7 +720,7 @@ typedef struct rt_mempool *rt_mp_t;
 
 ==物理内存中允许存在多个大小不同的内存池，每个内存池又由多个空闲内存块组成==，如下图所示
 
-![image-20210121192832607](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210121192832607.png)
+![image-20210121192832607](RT-Thread学习_内存管理.assets/image-20210121192832607.png)
 
 每个内存池对象对应一个内存池控制块，也就是说写代码的时候只要创建内存池控制块就能在它的参数范围内实现内存池管理
 

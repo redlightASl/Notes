@@ -6,7 +6,7 @@ AT指令最早是由发明拨号调制解调器（MODEM）的贺氏公司（Haye
 
 **AT命令集是一种应用于AT服务器（AT Server）于AT客户端（AT Client）间的设备连接于数据通信的方式**，基本结构图如下
 
-![image-20210226145046745](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210226145046745.png)
+![image-20210226145046745](RT-Thread使用_AT组件.assets/image-20210226145046745.png)
 
 * AT Client会向AT Server发送AT指令。==AT指令由三部分构成：前缀（由字符AT构成）、主体（由命令、参数和可能用到的数据构成）和结束符（设置为\r\n）==
 * AT Server会向AT Client发送响应数据和URC数据。==响应数据就是AT Client发送命令后收到的AT Server响应状态和信息==；==URC数据是AT Server主动发送给AT Client的数据，当出现特殊情况（如wifi断开、TCP接收数据等）时才会发送==

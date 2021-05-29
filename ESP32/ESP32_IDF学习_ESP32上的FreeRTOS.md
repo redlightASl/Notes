@@ -386,13 +386,13 @@ SMP RTOS使用**轮询调度算法**来进行任务调度，然而当两个相�
 
   图示如下：
 
-![](C:\Users\NH55\Pictures\Screenshots\freertos-ready-task-list.png)
+![](.\ESP32_IDF学习_ESP32上的FreeRTOS.assets\freertos-ready-task-list.png)
 
 
 
 然而在SMP RTOS中，就绪链表被两个核心共享，因此pxReadyTasksList会包含固定在两个不同核心上的任务，共用一个核心调用调度器时会发生抢占资源的情况，这种情况下资源调度器会查询TCB的xCoreID成员变量来决定一个任务是否被允许在当前请求执行的CPU上运行。虽然每个TCB都有一个xCoreID成员变量，但每个优先级链表中只有一个pxIndex，因此**调度器从某个核心被调用并遍历链表时，他会跳过被标记为另一个核心才能执行的任务**，如果另一个核心在此之后请求调度器分配任务，则pxIndex会从头开始遍历链表，来自另一个核心的上一个调度器并不会在当前核心的当前调度器的考虑范围内；当一个核心正在执行任务时，另一个核心请求分配任务，会从当前pxIndex的位置向后进行遍历。这就导致了一个问题：
 
-![ESP-IDF pxIndex Behavior](https://docs.espressif.com/projects/esp-idf/zh_CN/release-v4.1/_images/freertos-ready-task-list-smp-pxIndex.png)
+![ESP-IDF pxIndex Behavior](.\ESP32_IDF学习_ESP32上的FreeRTOS.assets\freertos-ready-task-list-smp-pxIndex.png)
 
 如上图所示，蓝色和橙色标明了由哪个CPU执行这个任务，当任务A被PRO_CPU执行时，APP_CPU申请分配任务，调度器自动从1向后遍历，找到了任务C；之后任务A完成，PRO_CPU请求分配任务，调度器从2向后遍历找到了任务3——这就导致任务B被跳过了！
 

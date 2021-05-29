@@ -28,7 +28,7 @@ RTT使用WLAN框架实现网络设备的驱动
 
 示意图如下所示：
 
-![image-20210220190904105](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210220190904105.png)
+![image-20210220190904105](RT-Thread使用_WLAN.assets/image-20210220190904105.png)
 
 APP：应用层，由开发者实现的基于WLAN框架的具体应用，可以被FinSH直接调用
 

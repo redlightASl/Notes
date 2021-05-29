@@ -245,7 +245,7 @@ static void thread_entry(void* parameter)
 
 线程状态切换图如下
 
-![image-20210107165813100](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210107165813100.png)
+![image-20210107165813100](RT-Thread学习_线程管理.assets/image-20210107165813100.png)
 
 创建线程：调用函数rt_thread_create/init()
 

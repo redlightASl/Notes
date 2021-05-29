@@ -16,7 +16,7 @@
 
 蓝牙协议栈框图如下所示：
 
-![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145125985-356995077.png](https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145125985-356995077.png)
+![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145125985-356995077.png](ESP32_IDF学习_经典蓝牙与BLE.assets/653161-20191204145125985-356995077.png)
 
 ## 蓝牙核心协议（Bluetooth Core）
 
@@ -28,7 +28,7 @@ Host负责在逻辑链路的基础上，进行更为友好的封装，这样就�
 
 ==Controller是工作在物理层、数据链路层、网络层、传输层的协议，Host则是工作在传输层 、会话层、表示层、应用层的协议，Host将Controller封装成可被配置为函数的形式供程序使用==
 
-![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png)
+![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](ESP32_IDF学习_经典蓝牙与BLE.assets/653161-20191204145156859-489087209.png)
 
 ### 包含的层次简介
 
@@ -144,7 +144,7 @@ Server通过**characteristic**对数据进行封装，多个characteristic组成
 
 ## ATT简述
 
-![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png)
+![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](ESP32_IDF学习_经典蓝牙与BLE.assets/653161-20191204145156859-489087209.png)
 
 属性协议层ATT（Attribute Protocol）是GATT和GAP的基础，它定义了BLE协议栈上层的数据结构和组织方式；在层内，它定义了属性（Attribute）的内容，规定了访问属性的方法和权限
 
@@ -278,7 +278,7 @@ GATT(Generic Attribute Profile)，描述了一种使用ATT的服务框架。该�
 
 **==现在的BLE大多建立在GATT协议之上==**，GATT建立在ATT和L2CAP之上，GATT需要使用通用访问协议GAP来确定设备的连接
 
-![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png)
+![https://img2018.cnblogs.com/blog/653161/201912/653161-20191204145156859-489087209.png](ESP32_IDF学习_经典蓝牙与BLE.assets/653161-20191204145156859-489087209.png)
 
 ### 通用访问协议GAP
 
@@ -336,7 +336,7 @@ BLE通信在建立成功后变为主从模式，**中心设备Central变为Maste
 7. 外设自动停止广播，其他设备无法再查找到该外设
 8. 按照以下时序进行通信，在中心设备发送包的间隔内，外设可以发送多个包
 
-![在这里插入图片描述](https://img-blog.csdnimg.cn/20190726193026779.png)
+![在这里插入图片描述](ESP32_IDF学习_经典蓝牙与BLE.assets/20190726193026779.png)
 
 8. 需要连接断开时只需要中心设备停止连接（停止发送包）即可
 9. 中心设备可以将外设的addr写入Flash或SRAM等存储器件，保持监听此addr，当再次收到外设广播时就可以建立通信。BLE Server设备为了省电，当一段时间内没有数据要发送时，可以不再发送包，双方就会因为连接超时（connection timeout）断开，这时需要中心设备启动监听，这样，当BLE Server设备需要发送数据时，就可以再次连接
@@ -805,7 +805,7 @@ static esp_ble_adv_params_t adv_params = {
 
 SPP的协议栈示意图如下
 
-![image-20210205162726034](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210205162726034.png)
+![image-20210205162726034](ESP32_IDF学习_经典蓝牙与BLE.assets/image-20210205162726034.png)
 
 ### 连接流程
 

@@ -12,7 +12,7 @@ rtthread_startup()是RTT规定的同意启动入口
 
 4. 进入用户入口main()
 
-   ![image-20210104163931753](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210104163931753.png)
+   ![image-20210104163931753](RT-Thread学习_系统启动.assets/image-20210104163931753.png)
 
 components.c
 
@@ -64,6 +64,6 @@ rt_hw_board_init()中完成了**系统时钟设置、串口初始化、将系统
 
 用户在main()函数内添加自己的应用
 
-![image-20210107174857535](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210107174857535.png)
+![image-20210107174857535](RT-Thread学习_系统启动.assets/image-20210107174857535.png)
 
 主线程经过以上流程进入用户应用

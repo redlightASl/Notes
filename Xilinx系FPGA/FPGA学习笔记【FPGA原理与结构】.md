@@ -884,11 +884,11 @@ PE的寄存器用于保存临时最大值X~MAX~，当输入比临时最大值大
 
 典型的电路结构如下：
 
-![image-20210404102541269](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210404102541269.png)
+![image-20210404102541269](FPGA学习笔记【FPGA原理与结构】.assets/image-20210404102541269.png)
 
 其中每个PE的结构如下：
 
-![image-20210404103243188](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210404103243188.png)
+![image-20210404103243188](FPGA学习笔记【FPGA原理与结构】.assets/image-20210404103243188.png)
 
 运算数据由标号令牌表示，程序和数据完全分离，每个PE都可以视作一个小型的冯诺依曼架构计算机，数据令牌则由存储位置指令的状态编号、自己的标号、存储位置指令的入口编号、存储位置指令的运算数组成，控制不同标号的运算数据进入不同的PE即可实现循环
 

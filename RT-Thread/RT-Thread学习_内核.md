@@ -236,11 +236,11 @@ rt_uint8_t *rt_hw_stack_init(void       *tentry,//线程入口函数的地址
 
 Cortex-M系列CPU的线程切换过程如下图所示
 
-![image-20210126153612568](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210126153612568.png)
+![image-20210126153612568](RT-Thread学习_内核.assets/image-20210126153612568.png)
 
 线程-线程切换过程可以描述为：保护现场（from线程寄存器压栈）——进入PendSV异常——替换参数（保存from线程参数并恢复to线程参数）——退出PendSV异常——替换恢复现场（to线程寄存器出栈）
 
-![image-20210126153650909](C:\Users\NH55\AppData\Roaming\Typora\typora-user-images\image-20210126153650909.png)
+![image-20210126153650909](RT-Thread学习_内核.assets/image-20210126153650909.png)
 
 中断-线程切换过程可以描述为：保护现场（from线程寄存器压栈）——执行中断服务程序——【咬尾中断】——进入PendSV异常——替换参数（保存from线程参数并恢复to线程参数）——退出PendSV异常——替换恢复现场（to线程寄存器出栈）
 

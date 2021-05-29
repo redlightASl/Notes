@@ -217,7 +217,7 @@ CSR寄存器中的机器模式中断使能寄存器mie负责控制中断的屏�
 
 下图是蜂鸟E203的系统结构框图
 
-![http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png](http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png)
+![http://14901018.s21i.faiusr.com/4/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png](RISC-V学习笔记【中断和异常】.assets/ABUIABAEGAAg8qiqgAYo_JSj5gIwkwM4-wE.png)
 
 蜂鸟E203的SoC只支持机器模式定义的中断，且不支持MPU、MMU（不会生成虚拟地址页错误异常）
 

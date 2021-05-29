@@ -162,7 +162,6 @@ void button_1_handler(void)
 
 void button_2_handler(void)
 {
-
   	//蓝灯亮
   	GPIO_REG(GPIO_OUTPUT_VAL) |= (1 << BLUE_LED_OFFSET);
 	//通过写1清除GPIO输出，等待下一次输入

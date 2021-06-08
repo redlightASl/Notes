@@ -354,15 +354,6 @@ always @(posedge clk)
 
 
 
-# 片上总线实现
-
-
-
-
-
-
-
-# SPI实现
 
 
 
@@ -372,5 +363,4 @@ always @(posedge clk)
 
 
 
-# USART实现
 

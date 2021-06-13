@@ -311,15 +311,255 @@ ALU部分负责**交付模块和前级的接口**
 
 ## 流水线冲突、长指令和OITF处理
 
-流水线冲突——冲刷
+流水线冲突包括资源冲突和数据冲突两类，这两种冲突都会导致流水线阻塞。蜂鸟E203采用了两种方法分别处理资源冲突和数据冲突
 
-长指令——拼接
+### 数据冲突
 
+**数据冲突**顾名思义，就是由于数据相关性引起的冲突
 
+蜂鸟E203采用巧妙的方法处理数据冲突：将所有指令分成两类，将数据相关性分为三类，通过长指令拼接和流水线冲刷的方式进行处理
 
+详细内容在下面的长指令和OITF处理部分给出
 
+### 资源冲突
 
+数据冲突的概念在之前已经给出，这里介绍一下资源冲突
 
+**资源冲突**通常发生在指令派遣给不同的执行单元进行执行的过程中，当一个指令被执行时耗费的时钟周期较长，此后又有其他指令被派发给同一个硬件模块进行处理的情况下便会出现资源冲突的情况——后续的指令需要等待前一个指令完成操作后将硬件模块释放出来后才能得到执行。
 
+蜂鸟E203的接口实现采用了严谨的valid-ready握手接口，一旦某个模块出现了资源冲突，它便会输出ready=0的信号，即使另一侧valid=1，也无法完成握手，所以前一级模块无法进行分配指令，将会进入等待状态，直到ready=1
 
+### 长指令和OITF处理
 
+蜂鸟E203将所有需要执行的指令分为两类：
+
+1. 单周期执行指令
+
+   蜂鸟E203的交付和写回功能均处于流水线的第二级，单周期执行指令在这一级就完成了交付和写回
+
+2. 多周期执行指令
+
+   这种指令通常需要多个时钟周期才能完成执行并写回，因此也称为“*后交付长流水线指令*”，简称为**长指令**
+
+   长指令的执行过程比较特殊
+
+为了在很多时钟周期后交付长指令，需要先检测出数据相关性，蜂鸟E203采用了一个称为OITF（Outstanding Instructions Track FIFO长指令追踪队列）的模块检测与长指令相关的RAW和WAW相关性
+
+之所以不检测WAR相关性，是因为E203是按序派遣、按序写回的微架构，在派遣时就已经从寄存器组中读取了源操作数，所以写回Regfile操作不会发生在读取Regfile源操作数之前。
+
+言归正传，OITF本质上是一个普通的FIFO（废话），它的源码在rtl/e203/core/e203_exu_oitf.v中可以查看
+
+**在派遣点，每派遣一个长指令，便会在OITF中分配一个表项，在这个表项中会存储该长指令的源操作数寄存器索引和结果寄存器索引**
+
+**在写回点，每次按序写回一个长指令后，就会将此指令在OITF中的表象去除——他就从FIFO中退出了**
+
+综上所述，==OITF本质上保存了已经被派遣但是尚未写回的长指令信息==
+
+为简单起见，这里就不附录相关代码了，感兴趣的读者可以自行翻阅源码
+
+### 资源冲突的解决思路
+
+蜂鸟E203采用了**阻塞流水线**的解决思路，并没有将长指令的结果直接快速旁路给后续的待派遣指令来解决数据冲突，也没有增加更多硬件模块处理资源冲突，这是因为蜂鸟E203的设计思路秉承“小面积”，放弃了更高的性能，转而实现较高的性能-面积比。如果设计高性能的CPU，则显然不能简单地使用这种思路
+
+## ALU模块
+
+蜂鸟E203的ALU单元位于EXU之下，主要包括5个子模块，它们共性同一份实际的运算数据通路，因此主要数据通路的面积开销只有一份
+
+* **普通ALU**：主要负责逻辑运算、加减法、移位运算等通用的ALU指令
+* **访存地址生成**：主要负责Load、Store和“A”扩展指令的地址生成、“A”扩展指令的微操作拆分和执行
+* **分支预测解析**：主要负责Branch和Jump指令的结果解析和执行
+* **CSR读写控制**：主要负责CSR读写指令的执行
+* **多周期乘除法器**：主要负责乘法和除法指令的执行
+
+### 普通ALU
+
+位于rtl/e203/core/e203_exu_alu_rglr.v
+
+该模块完全由组合逻辑电路构成（也就是说这玩意在FPGA里可以只占用一点点LUT），它本身并没有运算数据通路，其主要逻辑根据普通ALU的指令类型发起对共享运算数据通路的操作请求，并从共享的运算数据通路中取回运算结果
+
+### 访存地址生成
+
+该模块简称AGU（Adress Generation Unit），位于rtl/e203/core/e203_exu_alu_lsuagu.v
+
+相关内容会在存储器架构部分详细介绍
+
+### 分支预测解析
+
+位于rtl/e203/core/e203_exu_alu_bjp.v
+
+BJP（Branch and Jump resolve）模块是分支跳转指令进行交付的主要依据，可以查看交付部分进行了解
+
+### CSR读写控制
+
+该模块主要负责CSR读写指令的执行，位于rtl/e203/core/e203_exu_alu_csrctrl.v
+
+这个模块也是完全由组合逻辑组成，其根据CSR读写指令的类型产生读写CSR寄存器模块的控制信号
+
+代码片段如下：
+
+```verilog
+`include "e203_defines.v"
+
+module e203_exu_alu_csrctrl(
+  //握手接口
+  input  csr_i_valid, // valid信号
+  output csr_i_ready, // ready信号
+
+  input  [`E203_XLEN-1:0] csr_i_rs1,
+  input  [`E203_DECINFO_CSR_WIDTH-1:0] csr_i_info,
+  input  csr_i_rdwen,   
+
+  output csr_ena, // CSR读写使能信号
+  output csr_wr_en, // CSR写操作指示信号
+  output csr_rd_en, // CSR读操作指示信号
+  output [12-1:0] csr_idx, // CSR寄存器的地址索引
+
+  input  csr_access_ilgl,
+  input  [`E203_XLEN-1:0] read_csr_dat, // 读操作从CSR寄存器模块读出的数据
+  output [`E203_XLEN-1:0] wbck_csr_dat, // 写操作写入CSR寄存器模块的数据
+
+  `ifdef E203_HAS_CSR_NICE//{
+  input          nice_xs_off,
+  output         csr_sel_nice,
+  output         nice_csr_valid,
+  input          nice_csr_ready,
+  output  [31:0] nice_csr_addr,
+  output         nice_csr_wr,
+  output  [31:0] nice_csr_wdata,
+  input   [31:0] nice_csr_rdata,
+  `endif//}
+
+  //CSR写回/交付接口
+  output csr_o_valid, // valid信号
+  input  csr_o_ready, // ready信号
+  // 为了非对齐lst和AMO指令使用的特殊写回接口
+  output [`E203_XLEN-1:0] csr_o_wbck_wdat,
+  output csr_o_wbck_err,   
+
+  input  clk,
+  input  rst_n
+  );
+
+  `ifdef E203_HAS_CSR_NICE//{
+      // If accessed the NICE CSR range then we need to check if the NICE CSR is ready
+  assign csr_sel_nice        = (csr_idx[11:8] == 4'hE);
+  wire sel_nice            = csr_sel_nice & (~nice_xs_off);
+  wire addi_condi         = sel_nice ? nice_csr_ready : 1'b1; 
+
+  assign csr_o_valid      = csr_i_valid
+                            & addi_condi; // Need to make sure the nice_csr-ready is ready to make sure
+                                          //  it can be sent to NICE and O interface same cycle
+  assign nice_csr_valid    = sel_nice & csr_i_valid & 
+                            csr_o_ready;// Need to make sure the o-ready is ready to make sure
+                                        //  it can be sent to NICE and O interface same cycle
+
+  assign csr_i_ready      = sel_nice ? (nice_csr_ready & csr_o_ready) : csr_o_ready; 
+
+  assign csr_o_wbck_err   = csr_access_ilgl;
+  assign csr_o_wbck_wdat  = sel_nice ? nice_csr_rdata : read_csr_dat;
+
+  assign nice_csr_addr = csr_idx;
+  assign nice_csr_wr   = csr_wr_en;
+  assign nice_csr_wdata = wbck_csr_dat;
+  `else//}{
+  wire   sel_nice      = 1'b0;
+  assign csr_o_valid      = csr_i_valid;
+  assign csr_i_ready      = csr_o_ready;
+  assign csr_o_wbck_err   = csr_access_ilgl;
+  assign csr_o_wbck_wdat  = read_csr_dat;
+  `endif//}
+
+  //从Info Bus中取出相关信息
+  wire        csrrw  = csr_i_info[`E203_DECINFO_CSR_CSRRW ];
+  wire        csrrs  = csr_i_info[`E203_DECINFO_CSR_CSRRS ];
+  wire        csrrc  = csr_i_info[`E203_DECINFO_CSR_CSRRC ];
+  wire        rs1imm = csr_i_info[`E203_DECINFO_CSR_RS1IMM];
+  wire        rs1is0 = csr_i_info[`E203_DECINFO_CSR_RS1IS0];
+  wire [4:0]  zimm   = csr_i_info[`E203_DECINFO_CSR_ZIMMM ];
+  wire [11:0] csridx = csr_i_info[`E203_DECINFO_CSR_CSRIDX];
+  //生成操作数1，如果使用立即数则选择立即数，否则选择源寄存器1
+  wire [`E203_XLEN-1:0] csr_op1 = rs1imm ? {27'b0,zimm} : csr_i_rs1;
+  //根据指令的信息生成读操作指示信号
+  assign csr_rd_en = csr_i_valid & 
+    (
+      (csrrw ? csr_i_rdwen : 1'b0) // the CSRRW only read when the destination reg need to be writen
+      | csrrs | csrrc // The set and clear operation always need to read CSR
+     );
+  //根据指令的信息生成写操作指示信号
+  assign csr_wr_en = csr_i_valid & (
+                csrrw // CSRRW always write the original RS1 value into the CSR
+               | ((csrrs | csrrc) & (~rs1is0)) // for CSRRS/RC, if the RS is x0, then should not really write
+            );                                                                           
+  //生成访问CSR寄存器的地址索引
+  assign csr_idx = csridx;
+  //生成送到CSR寄存器模块的CSR读写使能信号
+  assign csr_ena = csr_o_valid & csr_o_ready & (~sel_nice);
+  //生成写操作写入CSR寄存器模块的数据
+  assign wbck_csr_dat = 
+              ({`E203_XLEN{csrrw}} & csr_op1)
+            | ({`E203_XLEN{csrrs}} & (  csr_op1  | read_csr_dat))
+            | ({`E203_XLEN{csrrc}} & ((~csr_op1) & read_csr_dat));
+endmodule
+```
+
+### 多周期乘除法器
+
+蜂鸟E200系列使用了两种乘除法解决方案
+
+对于蜂鸟E203，它配置了低性能小面积的多周期乘除法器，而对于其他性能较高的设备，则使用了高性能的单周期乘法器和独立的除法器
+
+常用的多周期乘除法器和除法器实现，一般采用下面的理论实现：
+
+* 有符号整数乘法：使用常用的Booth编码产生部分积，然后使用迭代的方法，每个周期使用加法器对部分积进行累加，经过多个周期的迭代后得到最终的乘积，从而实现多周期乘法器
+* 有符号整数除法：使用常用的加减交替法，然后使用迭代的方法，每个周期使用加法器产生部分余数，经过多个周期的迭代后得到最终商和玉树，从而实现多周期除法器
+
+两个模块的理论内容可参考数电教材或相关书籍
+
+因为两个模块都以加法器为核心并使用一组寄存器保存部分积或部分余数，所以在蜂鸟E203中使用了资源复用——将多周期乘除法器合并作为ALU的一个子单元，二者共享数据通路中的加法器，经过多个周期完成乘法或者除法操作
+
+多周期乘除法器MDV模块位于rtl/e203/core/e203_exu_alu_muldiv.v
+
+同时蜂鸟E203对乘除法进行了以下优化：
+
+* 乘法操作中，为了减少所需周期数，采用了基4（Radix-4）的Booth编码，并对无符号乘法进行一位符号扩展后统一当作有符号数进行运算，所以需要17个迭代周期
+* 除法操作中，使用了普通的加减交替法，同样对于无符号乘法统一进行一位符号扩展后当作有符号数进行运算，需要33个迭代周期。此外，由于加减交替法所得结果存在1比特精度的问题，还需要额外的1个时钟周期判断是否需要进行商和余数的矫正，还有额外2个周期的商和余数矫正，最终才能得到准确的除法结果
+* MDV模块只进行运算控制，没有自己的加法器，加法器与其他ALU子单元复用共享的运算数据通路
+* MDV模块也没有自己的寄存器，寄存器与AGU单元复用
+
+综上所述，**MDV实际上只是一个状态机，其乘法实现需要17个迭代周期，除法实现需要最多36个周期**，采用了典型的“速度换面积”思想
+
+### 运算数据通路
+
+事实上ALU真正用于计算的模块是数据通路，位于rtl/e203/core/e203_exu_alu_dpath.v
+
+它被动接受其他ALU子单元的请求来进行具体运算，然后将计算结果返回非其他子单元运算数据通路
+
+可以说ALU的其他子单元只是一套针对不同指令选择不同逻辑的状态机（控制系统），而数据主要经过的运算数据通路才是ALU的运算核心，整个ALU是类似“众星捧月”的结构——占据面积最大的运算数据通路在中间，数据流经过时会被周边的状态机挑选，或单次通过（普通ALU）或反复通过并输出不同结果到寄存器（多周期乘除法器），这就使得ALU面积大大缩小
+
+### 高性能乘除法运算
+
+除了小面积的多周期乘除法器外，**其他型号的蜂鸟E200**还配备了高性能的单周期乘法器和独立的除法器
+
+高性能乘法器会被部署在流水线第二级，除法器则仍然使用多周期除法器，但不再与ALU复用共享的运算数据通路，而是作为长指令拥有单独的除法器单元，同样部署在流水线第二级
+
+### 浮点单元
+
+蜂鸟E200系列支持RISC-V的“F”和“D”扩展子集，可以处理单精度和双精度浮点指令
+
+浮点指令由FPU支持，如果配置了FPU，则FPU作为长指令拥有独立的运算单元，并且FPU还具有独立的通用浮点寄存器组。包含F和D扩展子集的模块要求包含32个通用浮点寄存器，其中如果仅包含F的话，浮点指令子集通用浮点寄存器的宽度为32位，仅包含D的浮点指令子集通用浮点寄存器的宽度为64位
+
+蜂鸟E200系列的FPU支持以下功能
+
+* 独立的时钟门控
+* 独立电源域
+* 单双精度浮点指令复用数据通路
+
+但是**开源的蜂鸟E203并没有配备FPU**（悲）
+
+## 总结
+
+这部分简要介绍了蜂鸟E203的执行单元中译码和执行两个环节
+
+写回、交付还有其他的一些单元因为涉及到篇幅会在之后的写回、交付、存储器相关博文中介绍
+
+EXU部分是蜂鸟E203的核心环节，代码量也很多，所以需要反复理解

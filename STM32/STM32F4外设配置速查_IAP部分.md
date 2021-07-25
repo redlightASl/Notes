@@ -8,7 +8,7 @@
 
 2. IAP（in application programming）
 
-通过任意一种通信接口（IO口、USB、CAN、USART、I2C、SPI等）下载册灰姑娘徐或者应用数据到flash
+通过任意一种通信接口（IO口、USB、CAN、USART、I2C、SPI等）下载程序或者应用数据到flash
 
 stm32允许用户在应用程序中重新烧写flash中的内容
 

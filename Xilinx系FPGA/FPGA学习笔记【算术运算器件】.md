@@ -22,6 +22,162 @@
 
 
 
+### 基本乘法器
+
+使用verilog编写基本乘法器电路非常简单——一般来说都厂商的综合工具内置了乘法器电路的优化算法，只要使用`*`即可实现
+
+```verilog
+module BasicMultiply(
+    input clk,
+    input [7:0] x,
+    input [7:0] y,
+    
+    output [15:0] result
+);
+    
+    always @(posedge clk) begin
+        result = x * y;
+    end
+
+endmodule
+```
+
+对于速度一般的FPGA电路使用这种方案已经足够，但是仍可以针对某方面特性进行优化
+
+### 串行乘法器
+
+它的速度很慢、时延很大，但是占用面积相当小，适合单独用于低速信号处理，可以节省宝贵的片上面积
+
+```verilog
+module SerialMultiply(
+    input clk,
+    input [7:0] x,
+    input [7:0] y,
+    
+    output reg [15:0] result
+);
+
+    reg [1:0] state = 0; //状态机控制变量
+    parameter s0 = 0;
+    parameter s1 = 1;
+    parameter s2 = 2;
+    
+    reg [2:0] count = 0;
+    reg [15:0] P;
+    reg [15:0] T;
+    reg [7:0] y_reg;
+
+    /* 使用状态机处理串行的数据输入并按位进行运算 */
+    always @(posedge clk) begin
+        case (state)
+            s0: begin //复位
+                count <= 0;
+                P <= 0;
+                y_reg <= y;
+                T <= {{8{1'b0}}, x};
+                state <= s1;
+            end
+            s1: begin //安慰运算
+                if(count == 3'b111)
+                    state <= s2;
+                else begin
+                    if(y_reg[0] == 1'b1)
+                        P <= P + T;
+                    else
+                        P <= P;
+                    y_reg <= y_reg >> 1;
+                    T <= T << 1;
+                    count <= count + 1;
+                    state <= s1;
+                end
+            end
+            s2: begin //输出
+                result <= P;
+                state <= s0;
+            end
+            default: ;
+        endcase
+    end
+endmodule
+```
+
+### 经过优化的逐位并行乘法器
+
+
+
+
+
+### 流水线乘法器
+
+对于FPGA，进位速度要快于加法速度（除非自带片上的加法器阵列硬核），因此逐位并行的迭代阵列并不适合FPGA实现，相比之下使用流水线设计就可以大大提升乘法器效率——相对应地引入寄存器也会增大面积
+
+```verilog
+module multi_4bits_pipelining(
+    input [3:0] mul_a,
+    input [3:0] mul_b,
+    input clk,
+    input rst_n,
+    
+    output reg [7:0] mul_out
+);
+    
+    reg [7:0] stored0;
+    reg [7:0] stored1;
+    reg [7:0] stored2;
+    reg [7:0] stored3;
+
+    reg [7:0] add01;
+    reg [7:0] add23;
+
+    always @(posedge clk or negedge rst_n) begin
+        if(!rst_n) begin //复位
+            mul_out <= 0;
+            stored0 <= 0;
+            stored1 <= 0;
+            stored2 <= 0;
+            stored3 <= 0;
+            add01 <= 0;
+            add23 <= 0;
+        end
+        else begin //四段流水线
+            stored0 <= mul_b[0]? {4'b0, mul_a} : 8'b0;
+            stored1 <= mul_b[1]? {3'b0, mul_a, 1'b0} : 8'b0;
+            stored2 <= mul_b[2]? {2'b0, mul_a, 2'b0} : 8'b0;
+            stored3 <= mul_b[3]? {1'b0, mul_a, 3'b0} : 8'b0;
+
+            add01 <= stored1 + stored0;
+            add23 <= stored3 + stored2;
+
+            mul_out <= add01 + add23;
+        end
+    end
+endmodule
+```
+
+这就是在FPGA中应用较多的软乘法器了
+
+对于更高速的乘法器已经不适合用FPGA实现，厂商一般会将其封装成DSP硬核嵌入，使用厂商的综合工具即可自动进行调用，这些乘法器的架构一般是下面的几种类型
+
+### Wallace树乘法器
+
+
+
+
+
+
+
+
+
+### Booth4乘法器
+
+
+
+
+
+
+
+
+
 
 
 # 除法器
@@ -173,3 +329,10 @@ verilog实现如下
 
 
 # DSP
+
+
+
+
+
+
+

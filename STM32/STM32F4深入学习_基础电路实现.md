@@ -4,45 +4,45 @@
 
 # 触发器实现
 
+基本触发器电路分为D触发器、JK触发器、
+
 
 
 ## D触发器
 
+
+
 ```verilog
 module D_trigger(
     input d,
-    input cp,
+    input clk,
     input r,
     input s,
     output reg q,
     output reg qn,
 );
     
-always @(posedge cp) begin
+    always @(posedge clk) begin
 	if({r,s}==2'b01) //判断是否有r=0,s=1
 	begin
-		q=1'b0;//
+		q=1'b0; //复位输出0
 		qn=1'b1;
 	end
 	else if({r,s}==2'b10) //判断是否有r=1,s=0
 	begin
-		q=1'b1;//复位输出1
+		q=1'b1; //复位输出1
 		qn=1'b0;
 	end
 	else if({r,s}==2'b11) //判断是否有r=1,s=1
 	begin
-		q=d;//保持原来状态
+		q=d; //保持原来状态
 		qn=~d;
 	end
 end
 endmodule
 ```
 
-
-
-
-
-## 触发器
+## JK触发器
 
 
 
@@ -347,6 +347,78 @@ always @(posedge clk)
 
 
 # 倍频及PLL实现
+
+
+
+### 倍频器
+
+使用同或门配合D触发器即可实现基本的**二倍频**电路，代码如下所示
+
+```verilog
+module DoubleFreq(
+	input clk,
+	input rst,
+	output clk_out 
+);
+
+	reg Q;
+	wire XNOR_clk;
+    
+    assign XNOR_clk = Q ^ clk; //同或门作为D触发器时钟源
+	assign clk_out =  Q ^ clk; //clk_out的频率是clk的两倍
+    
+    always@(posedge XNOR_clk or negedge rst) begin //D触发器
+		if(!rst)
+			Q <= 0;
+		else
+			Q <= ~Q;
+	end
+endmodule
+```
+
+该电路的缺点在于倍频数、占空比不可调
+
+因此引入下面的改进版电路，结合基本分频器实现了任意倍频-分频
+
+```verilog
+module frequency_m_d (
+     input clk,
+     output multiplier_clk,
+     output reg divider_clk
+);
+    /* 倍频 */
+    reg temp_mul;
+    assign multiplier_clk = ~(clk ^ ~temp_mul);
+    
+    always @(posedge multiplier_clk)
+    begin
+        temp_mul <= ~temp_mul ;
+    end
+    
+    /* 分频 */
+    reg [27:0] count;
+    
+    always@(posedge clk) begin
+        if(count < 28'd1_0000_0000)
+            count <= count + 1'b1;
+        else
+            count <= 1'b0;
+	end
+    
+    always@(posedge clk) begin
+        if(count >= 28'd6_000_0000)
+            divider_clk <=1'b0;
+        else
+            divider_clk <=1'b1;
+	end
+endmodule
+```
+
+### 锁相环电路
+
+这里的PLL特指数字锁相环——而stm32内部的PLL其实是模拟-数字混合的锁相环，但它们的原理是类似的
+
+模拟锁相环中的鉴相器一般使用模拟乘法器来实现
 
 
 

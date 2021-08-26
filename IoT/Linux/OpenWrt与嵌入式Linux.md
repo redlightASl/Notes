@@ -123,19 +123,60 @@ LEDE是一个源于OpenWrt的分支嵌入式Linux系统，最初一批OpenWrt开
 
 #### GPIO
 
+手头的MT7621 SoC带有GPIO外设，可以通过控制**GPIO_MODE寄存器**来使能对应引脚，默认情况下会直接将GPIO复用到其他外设。GPIO是32位的，每个寄存器控制32个IO
 
+常用寄存器如下所示：
 
+* GPIO_CTRL_X 方向控制寄存器，用于控制GPIO状态为1输出，0输入，2高阻态
+* GPIO_POL_X 极性控制寄存器
+* GPIO_DATA_X 数据寄存器，通过读取这个寄存器来获取当前GPIO的值
+* GPIO_DSET_X 设置寄存器，置1进行使能GPIO
+* GPIO_DCLR_X 清除寄存器，置1进行失能GPIO
 
+使用方法如下：
+
+1. 登录OpenWrt，使用
+
+   ```shell
+   reg s 0
+   reg w 60 0x48258
+   ```
+
+   读取GPIO_MODE寄存器值，**将要配置为GPIO的引脚位设为1**
+
+   使用`reg r 60`查看是否配置成功
+
+2. 对应datasheet按照寄存器顺序使用指令
+
+   ```shell
+   reg w <寄存器位> <要写入的寄存器值>
+   ```
+
+   进行配置
+
+特别地，有些系统中提供了脚本控制的方法，这会使GPIO配置异常简单：
+
+```shell
+echo "13" > /sys/class/gpio/export #要设置的引脚
+echo "out" > /sys/class/gpio/gpio13/direction #引脚模式
+echo "1" > /sys/class/gpio/fpio13/value #设置GPIO输出值
+```
+
+当然如果你要给OpenWrt写一套串口驱动，那就必须按照Linux驱动标准来了，这里不再赘述
 
 #### SPI与IIC
 
+OpenWrt是支持SPI、IIC的，只要硬件支持就可以调用这俩东西
 
+相对应的驱动随设备不同而不同，甚至需要在编译时单独加入
 
-
+特别地，很多屏幕需要使用SPI驱动；很多摄像头需要使用IIC驱动（用来支持SCCB接口），因此最好在编译内核的时候将二者添加进去（占用空间并不是很大）
 
 #### LAN口
 
 路由器LAN口用来连接局域网，也就是内网，路由器可以**为LAN口设备提供互联网接入**或**将所有LAN口设备连接到一个VLAN实现交换机目的**
+
+相关的内容等到之后的配置OpenWrt再说
 
 #### WAN口
 
@@ -208,6 +249,8 @@ WAN口是路由器的灵魂，没有WAN口的路由器就是个死交换机，�
 
 [openwrt](https://github.com/openwrt/openwrt)整个项目在github上可以找到
 
+也可以通过[官方OpenWrt源码](https://git.openwrt.org/openwrt/openwrt.git)下载
+
 于是直接用git下载或下载压缩包到linux系统就可以使用了
 
 一般来说可以使用虚拟机搭建环境，但是如果你习惯了使用桌面端linux，可以直接在你的双系统/纯linux环境中搭建openwrt的开发环境
@@ -217,7 +260,7 @@ WAN口是路由器的灵魂，没有WAN口的路由器就是个死交换机，�
 根据openwrt项目中的README文档就可以简单地配好整个环境，这里摘录一下在ubuntu20中所需要安装的一些关键软件包
 
 ```shell
-sudo apt install 
+sudo apt install gcc g++ make gettext libncurses5-dev patch binutils flex bison subversion build-essential autoconf bzip2 libz-dev zlib1g-dev gawk git ccache gettext asciidoc libssl-dev sphinxsearch xsltproc sphinx-common libtool libssl-dev unzip
 ```
 
 安装完依赖以后还要下载一些openwrt主分支中没有加入的源代码，这些都是诸如kernel、package之类的大号源码，需要从官方**对应的版本库**中拉取到本地
@@ -228,7 +271,39 @@ sudo apt install
 
 常用的大版本有14、15、16、17、18、19，小版本从.1到.9不等，各个版本差异都比较大，大版本之间软件包基本是不可能通用的，小版本之间的软件包安装也存在各种问题，所以**选版本的时候尽量考虑清楚**
 
+使用指令`git checkout openwrt-xx.xx`来切换到某个指定的内核版本，可以通过**git指令**查看各个版本间的不同
 
+选择版本后就要添加软件扩展包了：
+
+首先
+
+```shell
+cp feeds.conf.default feeds.conf
+```
+
+设置所需要使用的源，然后
+
+```shell
+./scripts/feeds update -a
+./scripts/feeds install -a
+```
+
+更新并安装扩展程序
+
+完成后应该可以看到OpenWrt目录如下：
+
+* config 编译选项配置文件目录: 包含全局编译设置，开发人员设置和内核编译设置
+* include 就是普通的头文件目录，但是也包含了各种脚本和Makefile
+* package 软件包目录
+* scripts 环境脚本、下载补丁脚本、Makefile等
+* target 嵌入式平台移植包
+* toolchain 编译器和C库工具链
+* tools 用于生成固件的辅助工具
+* dl 下载的软件包目录
+
+顺带一提，在编译完成时还能看到build_dir和staging_dir，二者分别是中间文件目录和编译安装目录
+
+在完成配置后可以使用`make defconfig`来测试编译环境是否配置正确
 
 > 千万注意不要被老版本的配环境资料误导，包括本篇！不要看见一个差不多的资料就从里面复制粘贴指令！
 >
@@ -238,17 +313,49 @@ sudo apt install
 
 #### menuconfig
 
+配完环境以后就可以进行半可视化配置内核、应用程序的menuconfig了
 
+先使用
 
+```shell
+make menuconfig
+```
 
+**打开menuconfig半图形化配置界面，在里面添加需要选用的组件**
 
+操作：键盘上下移动光标，左右选择底部按键，回车是确认，空格是设置选择模式，选项最前面的选择模式有[*]表示编译进固件，[M]表示编译成安装包，[ ]表示不选择，esc是返回上级菜单，按?是帮助，按/是搜索
 
+注意一般应用程序编译成安装包等进入系统后再安装，kmod内核驱动要编译进固件，带opkg字样的东西一定要编译进固件，不然没法安其他包
 
+**配置选项定义**
 
+|              配置选项               | 含义                                                      |
+| :---------------------------------: | :-------------------------------------------------------- |
+|            Target System            | 目标平台，对应目录openwrt/target/linux 里的目录           |
+|              Subtarget              | 目录 openwrt/target/linux/(目标) 里的子目录，定义特定目标 |
+|           Target Profile            | 目标描述文件，在subtarget目录下面的profile目录中          |
+|            Target Images            | 编译生成目标固件的控制选项                                |
+|        Global build settings        | 全局编译设置，按默认设置进行编译就可以                    |
+|   Advanced configuration options    | 高级配置选项，无需理会                                    |
+|   Build the OpenWrt Image Builder   | 可以编译出一个编译系统供其它主机安装                      |
+|        Build the OpenWrt SDK        | 编译生成SDK开发包，提供给其它主机进行应用开发             |
+| Package the OpenWrt-based Toolchain | 生成开发工具链包，提供给其它主机进行应用开发              |
+|         Image configuration         | 控制是否打开feed.conf中的模块                             |
+|             Base system             | 基本软件包选择，主要是busybox组件                         |
+|            Boot Loaders             | 引导系统的系统，不用管它                                  |
+|             Development             | 开发包、开发工具，如gcc、gdb之类                          |
+|              Firmware               | 特定硬件的固件                                            |
+|           Kernel modules            | 内核模块、内核配置选项                                    |
+|              Languages              | 软件开发语言选择                                          |
+|              Libraries              | 动态链接库选择                                            |
+|               Network               | 网络功能模块选择                                          |
+|             Utillities              | 一些实用工具模块                                          |
 
+（上面内容摘录自https://www.jianshu.com/p/e2b5a292392e）
 
+完成选择后就可以保存退出了，生成的文件会让你命名，一般直接保持默认`.config`即可
 
-
+>在这个项目里，我遇到的最大问题就是在menuconfig的时候安装进模块的软件包无法使用，于是只能和OpenWrt内核版本、底层硬件驱动、网口配置斗智斗勇......在一般情况下面对嵌入式设备一定要首先考虑在menuconfig的时候安装软件包，否则后续的操作有可能反而比menuconfig复杂——尤其是在安装额外的kmod，也就是内核驱动时。自行编译的内核是具有独立的md5码的，并不能和官方的bin文件对应的md5码吻合，这就导致下载软件包的时候kmod无法匹配内核，所以要使用强制安装，而又因为你的内核是自行编译的，所以很有可能会出现因为内核版本不对而很多程序无法运行，甚至运行时崩溃的情况
 
 #### 漫长的编译
 
@@ -315,6 +422,8 @@ make clean #重新编译之前记得用一下，不然下次编译可能出现�
 
    uBoot功能很强大，在某种程度上说它就像桌面版linux的livecd一样，只要uboot不刷坏，设备就可以说是不死的，一直可以通过重新进入uboot的方式刷新系统
 
+   > 顺便提一下，对于14.07版本的内核，应用在MT7621上时，安装kmod-usb-ehci与kmod-usb-hid可能会导致冲突让系统崩溃，就是因为同时安装了他俩让我不得不重新刷机好几次
+
 2. **luci界面升级**
 
    就是上面说过的登入网关以后从配置界面上传固件升级的过程，但是一般来说会保留原来系统的配置，所以最好刷更新的固件，而不是刷老版本固件，否则会有可能变砖，还需要用第一种方法再刷一次
@@ -333,7 +442,7 @@ make clean #重新编译之前记得用一下，不然下次编译可能出现�
 
 #### Luci
 
-完成系统烧录以后，上电，上位机连上LAN口，等待几分钟，一般来说就能进入一个登陆界面，这就是OpenWrt的**Luci界面**
+完成系统烧录以后，上电，上位机连上LAN口，等待几分钟，浏览器打开网关地址（一般是`192.168.1.1`），一般来说就能进入一个登陆界面，这就是OpenWrt的**Luci界面**
 
 通过这个界面可以对设备的大多数设置进行调整，这里不多作介绍，都是很直接了当的东西
 
@@ -367,21 +476,23 @@ ssh 用户名(一般是root)@目标设备IP
 
 ### 联网
 
-OpenWrt一个突出特点就是自带了被称为opkg的包管理器，它和apt、yum、pacman等指令使用方式类似，能够不是太智能地只能解决软件包依赖问题：只能解决一点点。一般来说自动解决需要一层依赖的软件包安装还是可以的，但是为了安全起见还是一步一步的安装软件包吧
+强调一下：==如果是必须的kmod还是应该先想好然后在编译内核阶段完成安装==
 
+一般来说正常安装了网络设备驱动和普通luci界面的设备直接插上网线或者通过luci界面配置好wifi以后就可以联网了，但是如果无法联网可能有以下几个原因：
 
+1. 编译内核时没有把网络设备驱动编译进去（一般来说是默认添加且不能修改的，但是谁知道用户会做出什么逆天操作）
+2. 外部设备不支持联网（一般是硬件坏了，弄个交换机上OpenWrt还不如多花点钱买个带千/万兆网口的）
+3. 配置问题
 
+1、2点需要重新编译或者检查硬件甚至重新选型，非常难以解决，所以一定要避免这两种问题出现；第三种相对容易解决一些，根据百度到的教程一步步来即可，一般来说都是因为路由器接口/netif/wpa/交换机接口配置出错，依次排除不要着急
 
-
-
-
-
-
-
+> 在我调试这个板子的时候发生了一件很绝望的事情：板子无法联网，但是能够在内网登录luci界面并ssh。刚开始我以为是软件问题，先去查找了一遍OpenWrt的官方文档，通过luci界面配置了一遍接口，但是无济于事；然后又ssh进去通过vi查找配置文件，无果；因为项目进度逼的比较紧，于是只能换用离线装软件包的方法。等到折腾了一大通硬装软件包以后才想起来检查硬件问题，最后发现是开头说的网络变压器电路问题导致无法联网
+>
+> 所以嵌入式编程**一定要先排除硬件问题**！
 
 ### 包管理器
 
-OpenWrt最与众不同的一点就是它配备了**opkg**包管理器，常用指令如下
+OpenWrt最与众不同的一点就是它配备了**opkg**包管理器，它和apt、yum、pacman等指令使用方式类似，能够*不是很智能地智能解决*软件包依赖问题：*只能解决一点点*。一般来说自动解决需要一层依赖的软件包安装还是可以的，但是为了安全起见还是一步一步的安装软件包吧。opkg常用指令如下
 
 ```shell
 opkg install 
@@ -390,23 +501,15 @@ opkg update
 opkg upgrade
 ```
 
-
-
-
-
-
-
 软件包管理器的设置位于`/etc/opkg`中
 
+这个包管理器也是支持**换源**的，如果某个软件源不好连接，完全可以更换当前使用的软件源，使用luci界面就可以轻松换源，如果非要使用命令行也可以像ubuntu那样直接编辑设置文件来换源
 
+具体操作网上有很多，不再赘述，特别指出善用下面的指令可以快速更换软件源的域名
 
-
-
-并且这个包管理器也是支持**换源**的，如果某个软件园不好连接，完全可以更换当前使用的软件源，使用luci界面就可以轻松换源，如果非要使用命令行也可以像ubuntu那样直接编辑设置文件来换源
-
-具体操作网上有很多，不再赘述
-
-
+```shell
+sed -i
+```
 
 特别地，安装软件包时如果碰到了kmod字样的软件包，就说明这是一个内核驱动包，在安装它的时候很可能会遇到内核版本不正确的情况——因为自行编译的OpenWrt生成时会自动携带一个经过修改的md5码，它往往和已有的内核驱动应该对应的验证码不一致，因此会出现报错，这种情况下在安装指令后面加上如下参数就可以解决问题了
 
@@ -416,81 +519,83 @@ opkg upgrade
 
 如果还是不行，甚至出现系统崩溃、变砖的情况，就要考虑是否是自己的软件源选错抑或是自己编译的内核版本不对了
 
+这就是为什么在上面反复强调要注意内核版本与内核驱动
 
+**snapshot版本和release版本区别**
 
-### 换源
+我们经常会看到软件源中的某些项目版本以release或snapshots结尾，一般来说snapshots版本代表正在开发中的版本（快照版本,一般处于开发阶段），release代表比较稳定的发布版本（这次迭代的所有功能都已经完成）
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-snapshot版本和release版本区别
-
-在java开发过程中，我们经常会看到代码仓库中的某些项目版本以release或snapshots结尾,现在说说这两个版本之间有什么区别.
-
-一般来说snapshots版本代表正在开发中的版本,release代表比较稳定的发布版本.
-
-比如我们新建一个maven项目,默认版本是这样的:
-
-<groupId>com.example</groupId>
-	<artifactId>demo</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
-	<name>demo</name>
-<description>Demo project</description>
-
-    <groupId>com.example</groupId>
-    	<artifactId>demo</artifactId>
-    	<version>0.0.1-SNAPSHOT</version>
-    	<name>demo</name>
-    <description>Demo project</description>
-
-上面0.0.1表示项目的版本号,表示这次迭代我要开发的所有主要功能都是属于这个版本的;
--SNAPSHOT表示该版本是快照版本,一般处于开发阶段,0.0.1版本还有功能没有完成,或还有bug还要修复,所以这个阶段一般代码更新比较频繁,开发人员写完代码会直接提交到代码仓库,这样之前依赖0.0.1-SNAPSHOT版本的开发人员也可以马上更新代码.
--Release表示是稳定版的,这次迭代的所有功能都已经完成,并且通过了测试之后,就可以发布为0.0.1-Release版本,Release版的一旦发布，就不要再改变代码了,所以如果之后在0.0.1-Release这个版本上发现了bug,需要修复,那么我们应该将0.0.1-Release版本改为0.0.2-SNAPSHOT,然后再修改bug并测试,没问题之后将0.0.2-SNAPSHOT改为0.0.2-Release发布.
-
-使用maven的时候maven会根据pom文件中的version中是否带有-SNAPSHOT来判断是否是快照版本。如果是快照版本，在maven deploy时会发布到快照版本库中,依赖该版本的项目在编译打包时，maven会自动从maven仓库下载新的快照版本。如果是正式发布版本,deploy时会自动发布到正式版本库中，依赖该版本的项目在编译打包时如果本地已经存在该版本的工程默认不会从maven仓库下载新的版本.
-
-所以如果现在开发的项目依赖了另外一个项目,如果不希望出现本来运行的好好地,过了一会儿因为依赖项目的更新突然不能运行了,那么可以选择依赖一个Release版本(如果有的话).
-
-
-
-
-
-
-
-
+> 换源的操作对于嵌入式Linux，或者说OpenWrt来说不是很重要，但是在面对很难处理的软件bug时可以考虑换源来解决，我在处理项目时通过多次换源解决了一些软件包的依赖问题，使用到的源如下：
+>
+> 清华源 src/gz barrier_breaker_base http://mirrors.tuna.tsinghua.edu.cn/openwrt/barrier_breaker/14.07/ramips/mt7621/packages/base
+>
+> 稳定版官方源 src/gz barrier_breaker_base http://downloads.openwrt.org/snapshots/trunk/ramips/mt7621/packages/base
+>
+> 快照版官方源 src/gz barrier_breaker_base http://downloads.openwrt.org/snapshots/trunk/ramips/mt7621/packages/base
+>
+> 存档版官方源src/gz barrier_breaker_base https://archive.openwrt.org/snapshots/trunk/ramips/mt7621/packages/base
+>
+> **主要的思路就是查看自己要安装的软件包都需要什么依赖，然后对照依赖版本寻找对应的md5码，再根据md5码选择支持的官方源**
+>
+> 在换源的时候可能会遇到下面的报错：Package xxx version xxx has no valid architecture, ignoring.
+>
+> 这是因为源指定的系统和设备上刷入的系统md5码不符合，可以直接在/etc/opkg.conf文件中加入对系统支持的architecture的设置，也就是在文件中添加下面的内容：
+>
+> ```shell
+> arch all 100
+> arch <arch类型1> 200
+> arch <arch类型2> 300
+> ```
+>
+> arch类型可以在源下面的package目录内配置文件中查找到，我使用的配置如下：
+>
+> ```shell
+> arch all 100
+> arch mips 200
+> arch ramips 300
+> arch unkown 400
+> ```
+>
+> 换用[官方archive源](https://archive.openwrt.org/)也可以帮助解决一些老版本不兼容的问题
 
 ### 安装软件包
 
+只要登陆进luci界面，再让设备联网就可以轻松地进行可视化安装，并且luci界面还会将软件包依赖关系列出来，非常简便；命令行下的安装过程也不算复杂，和ubuntu、centos等发行版的软件安装方法类似
 
+一般我们用opkg安装软件有两种方式：
 
+* 是连上网络后从官方网站安装
 
+  ```shell
+  opkg update
+  opkg install xxx
+  ```
 
+* 把软件下载到上位机（直接进入软件源网页，通过ftp下载即可），通过winscp或者linux下使用scp指令传到路由器tmp目录，再使用指令
 
+  ```shell
+  opkg install xxx.ipk
+  ```
 
+  安装
 
+如果路由暂时上不了网，就无法使用前一种方法，后一种方法又有些麻烦，其实除此之外还可以通过上位机开启ftp/http服务，让设备接入来实现“在内网”安装：
 
+1. 在本机上开ftp/http/其他网络服务
 
+2. 修改/etc/opkgconfig，将第一行的网址（也就是软件源地址）改成上位机服务器放安装包的服务目录
 
+3. 从软件源下载需要的安装包到服务目录
 
+4. 把软件源的packages文件下载到服务目录
 
+5. 使用指令
 
+   ```shell
+   opkg update
+   opkg install xxx
+   ```
 
+   安装软件
 
-
-
-
+> 上面提到了本地安装软件包的方法，所以在这里特别提一下，**实际上安装非常麻烦**，所以尽量不要使用这种方法

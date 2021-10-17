@@ -5,3 +5,5 @@
 目前还没有碰opencv、opencl的想法，准备先把基础的概念和经典的机器视觉算法搞明白再说
 
 顺便学一下tensorflow、pytorch这些东西
+
+毕竟目标是搞fpga，早晚都要碰的嘛（

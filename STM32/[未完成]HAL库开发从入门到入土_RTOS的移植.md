@@ -4,7 +4,12 @@
 
 在这一过程中，CubeMX为用户做了如下工作
 
-* 
+* 将FreeRTOS内核组件源文件加入工程
+* 选择合适的内核移植文件
+* 修改systick和pendSV中断汇编
+* 将FreeRTOS的API用宏定义封装风格统一的函数和宏
+* 加入FreeRTOS外设驱动
+* 使用CubeMX统一配置内核对象
 
 
 

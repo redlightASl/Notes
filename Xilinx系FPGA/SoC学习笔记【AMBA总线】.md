@@ -44,6 +44,8 @@ APB总线包含8根信号线：
     3. 第三个周期完成之前，PADDR、PWDATA和控制信号会一直保持有效
     4. 第四个周期，PENABLE和PSEL变成无效，等待下一个传输开始
     
+    ![img](SoC学习笔记【AMBA总线】.assets/20200511103914209.png)
+    
 2. 有等待状态写
 
     1. 在访问周期开始时，PENABLE为高时，可以通过拉低PREADY来扩展传输
@@ -53,6 +55,8 @@ APB总线包含8根信号线：
 3. 无等待状态读
 
     基本时序和无等待状态写类似，但是使用PRDATA作为信号传输线，在读传输结束之前，从设备必须主动提供数据
+
+    ![img](SoC学习笔记【AMBA总线】.assets/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L2x5ZndpbGw=,size_16,color_FFFFFF,t_70.png)
 
 4. 有等待状态读
 
@@ -86,7 +90,7 @@ APB总线用于低速低功耗的情况，一般只是用他来控制外设的�
 
 ![一个典型的AHB系统总线的结构示意图](SoC学习笔记【AMBA总线】.assets/123F15311_0.png)
 
-如上图所示，典型AMBA总线系统就是这样，
+如上图所示，典型AMBA总线系统就是这样，ARM核、片上RAM、DTCM/ITCM等高带宽内存、DMA设备这些需要高速传输的设备挂载到AHB总线上；APB总线连接低速的定时器、GPIO、串口、片外总线控制器等外设；AHB总线和APB总线间通过总线桥相连不过近年来，随着外设和片外总线速度越来越高（MCU逐渐整合DSP功能），一些高速定时器、高速GPIO都会被直接挂载到AHB总线上
 
 
 
@@ -104,4 +108,5 @@ APB总线用于低速低功耗的情况，一般只是用他来控制外设的�
 
 AHB总线和APB总线相关内容可以参考知乎上面@[桔里猫](https://www.zhihu.com/people/orangeofcat)的[简介](https://zhuanlan.zhihu.com/p/157808097?from_voters_page=true)，本博文也参考了一部分
 
-下面再介绍现代FPGA中常用的AMBA
+下面再介绍现代FPGA中常用的AMBA总线：AXI4总线
+

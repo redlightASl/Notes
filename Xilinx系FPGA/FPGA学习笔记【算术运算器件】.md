@@ -77,7 +77,7 @@ module SerialMultiply(
                 T <= {{8{1'b0}}, x};
                 state <= s1;
             end
-            s1: begin //安慰运算
+            s1: begin //按位运算
                 if(count == 3'b111)
                     state <= s2;
                 else begin

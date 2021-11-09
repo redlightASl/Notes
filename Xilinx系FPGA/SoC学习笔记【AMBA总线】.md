@@ -188,17 +188,31 @@ AHB总线的信号都是以H开头，区别其他的AMBA总线信号
 * 10：**NONSEQ**（非连续）。一次猝发的第一次传输或者一个独立传输，表示地址与控制信号和前一次传输无关。总线上的单个传输会被看作一次猝发传输，随意使用这个信号会导致传输不连续
 * 11：**SEQ**（连续）。表示在一次猝发传输中剩下的传输是连续传输且与前一次传输有关，控制信息和前一次传输时一样，地址等于*前一次*传输的地址加上传输大小（以字节为单位）。在回卷猝发的情况下，传输地址需要在地址边界处回卷，*回卷值等于传输大小乘传输次数*
 
+```verilog
+// Transfer type: HTRANS[1:0]
+`define HTRANS_IDLE   2'b00
+`define HTRANS_BUSY   2'b01
+`define HTRANS_NONSEQ 2'b10
+`define HTRANS_SEQ    2'b11
+```
+
 ### 传输控制信号
 
 每次AHB传输中，都会使用一组控制信号线提供传输的附加信息，要求他们的时序和地址总线时序严格一致，并且信号在猝发传输中保持不变
 
-下面是用到的控制信号
+下面是用到的控制信号线
 
 1. 传输方向HWRITE
 
     HWRITE=1时，表示写传输，主设备会将数据放到写数据总线HWDATA[31:0]
 
     HWRITE=0时，表示读传输，从设备会将数据放到读数据总线HRDATA[31:0]
+
+    ```verilog
+    // Write signal: HWRITE
+    `define HWRITE_READ  1'b0
+    `define HWRITE_WRITE 1'b1
+    ```
 
 2. 传输大小HSIZE
 
@@ -214,6 +228,18 @@ AHB总线的信号都是以H开头，区别其他的AMBA总线信号
     * 101：256位
     * 110：512位
     * 111：1024位
+
+    ```verilog
+    // Transfer size: HSIZE[2:0]
+    `define HSIZE_8    3'b000
+    `define HSIZE_16   3'b001
+    `define HSIZE_32   3'b010
+    `define HSIZE_64   3'b011
+    `define HSIZE_128  3'b100
+    `define HSIZE_256  3'b101
+    `define HSIZE_512  3'b110
+    `define HSIZE_1024 3'b111
+    ```
 
 3. 保护信号HPROT[3:0]
 
@@ -247,6 +273,19 @@ AHB协议规定了4、8、16拍的基本猝发和未定长度的猝发。协议�
 * 110：16拍回卷猝发
 * 111：16拍递增猝发
 
+```verilog
+// Bus operation: HBURST[2:0]
+// Note: 猝发传输不能跨越1kB的地址边界
+`define HBURST_SINGLE 3'b000
+`define HBURST_INCR   3'b001
+`define HBURST_WRAP4  3'b010
+`define HBURST_INCR4  3'b011
+`define HBURST_WRAP8  3'b100
+`define HBURST_INCR8  3'b101
+`define HBURST_WRAP16 3'b110
+`define HBURST_INCR16 3'b111
+```
+
 特别注意：**猝发不能超过1KB的地址边界**
 
 猝发大小表示猝发的节拍数量而不是一次猝发传输的实际字节数——**每拍字节数是由HSIZE[2:0]指示的**
@@ -270,16 +309,24 @@ AHB协议规定了4、8、16拍的基本猝发和未定长度的猝发。协议�
 
 ### 从设备传输响应时序
 
-从设备使用HREADY信号来扩展一次AHB传输的数据周期——HREADY=0，表示要扩展传输；否则表示传输完成
+从设备使用HREADY信号来扩展一次AHB传输的数据周期——HREADY=0，表示要扩展传输；否则表示传输完成，同时可以结合从设备输出的HRESP[1:0]信号表示传输情况
 
 协议推荐从设备不要插入多余16个扩展传输等待状态，否则单个访问会将总线锁定较长的时钟周期，影响片上数据传输——*不过这并不是强制规定*
 
-HREADY具有以下四种状态：
+HRESP[1:0]具有以下四种状态：
 
 * 00：OKAY，表示成功完成传输
 * 01：ERROR，表示发生传输错误，出现错误条件时，需要两个周期响应
 * 10：RETRY，表示传输并未完成，总线主设备应重新传输直到完成，要求两个周期响应。仲裁器收到该指示后会继续使用原有的优先级方案，重新为申请总线的设备排序并进行调度分配
 * 11：SPLIT，表示未成功完成传输，下次授权总线主设备访问总线时再尝试传输；当能够完成传输时，从设备会将请求代替主设备访问总线，要求两个周期响应。仲裁器收到该指示后会调整优先级方案来让其他主机的传输优先完成，随后再进行当前主机的传输
+
+```verilog
+// Transfer response: HRESP[1:0]
+`define HRESP_OKAY  2'b00
+`define HRESP_ERROR 2'b01
+`define HRESP_RETRY 2'b10
+`define HRESP_SPLIT 2'b11
+```
 
 上面要求两个周期响应的情况被称为**双周期响应**，需要在最后一个传输的前一个周期驱动HRESP[1:0]表示扩展一个周期。而如果从设备还需要更多周期，应该在传输开始时将HREADY信号拉低，同时响应OKAY。双周期响应允许主设备有足够时间取消该地址，并且在下次传输前驱动HTRANS[1:0]为空闲传输
 
@@ -293,37 +340,445 @@ AHB协议要求读写数据总线至少为32位，但是允许用户扩展数据
 
 1. 写数据总线HWDATA
 
-    写数据总线依赖主设备驱动，如果使用扩展传输，总线主设备需要保持数据有效知道HREADY为高（表示传输完成）为止
+    写数据总线依赖主设备驱动，如果使用扩展传输，总线主设备需要保持数据有效知道HREADY为高（表示传输完成）为止。要求传输与数据宽度相等的数据宽度对齐：字传输对其到字边界，半字传输对齐到半字边界，以此类推。
+
+    同时需要区分大端和小端序，二者的有效字节通道是正好相反的，如下图所示
+
+    ![https://img2018.cnblogs.com/blog/361409/201905/361409-20190523105301974-714158567.png](SoC学习笔记【AMBA总线】.assets/361409-20190523105301974-714158567.png)
+
+    显而易见，**不要把端序不同的设备接到同一个总线上**
 
 2. 读数据总线HRDATA
 
+    从设备负责驱动读数据总线，当HREADY拉低，可以扩展读传输过程，从设备只需在传输的*最后一个周期*提供有效数据。
 
-
-
+    对于小于总线宽度的数据传输，从设备需要在有效的字节通道提供有效数据，总线主设备负责从这些通道内选择数据采样，且**只有传输以OKAY响应结束时，从设备才需要提供有效数据**
 
 3. 端结构
 
+    **AHB总线不支持动态端结构**
 
-
-
+    同时对于其他具有相似性能的总线，也不推荐支持动态端结构——因为它的面积和功耗开销太大了
 
 ### 仲裁器
 
+**设置总线仲裁器的目的是保证任意时刻只有一个主设备在占用总线**。仲裁器会检测多个主设备的总线使用需求，确定当前请求总线的主设备中优先级最高的主设备，并动态调节来自从设备的分割传输请求。
 
+仲裁器作为总线主控设备使用以下信号线：
 
+* HBUSREQx总线请求信号：主设备会使用该信号请求访问总线
 
+    因为一个系统中最多有16个独立的总线主设备，因此x在0~15之间
 
+* HLOCKx总线同步锁定信号：用于通知仲裁器主设备正在进行不可分割的传输
 
+    一旦该信号拉高，仲裁器就不应该授权其他主设备访问总线
 
+    主设备应当保证寻址完毕之前HLOCKx信号在一个周期内有效，防止仲裁器改变授权信号
 
+* HGRANTx授权信号：由仲裁器产生，高电平有效，表示对应的主设备优先级最高，享有总线控制权，优先考虑锁定传输和分割传输。
 
+    得到该信号确认的主设备，在HCLK上升沿时HREADY为高——当HREADY和HGRANTx同时为高时，主设备被允许获取系统总线
 
+* HMASTER[3:0]主设备ID信号线：表示当前被授权使用总线的主设备编号
 
+    特别情况，具有分割传输能力的从设备也能请求主设备号，以便提示仲裁器能够完成一个分割传输的主设备
 
+* HMASTLOCK锁定信号：指示某个传输是一个锁定序列的一部分
+
+    表示当前的主设备正在执行锁定操作
+
+* HSPLIT[15:0]分割传输信号：从设备用来指示能够完成一个分割传输的总线主设备，仲裁器获取该信号线上数据来向对应的主设备提供授权完成分割传输
+
+下面是仲裁器的一个实现
+
+```verilog
+/*
+AMBA 总线规范是一种多主总线标准。因此
+需要一个总线仲裁器来确保只有一个总线主机可以访问
+任何特定时间的总线。这个仲裁器最多可以支持三个总线主设备
+*/
+module ahb_arbiter3
+(
+  //主设备0
+  input HBUSREQx0,
+  input HLOCKx0,
+  output reg HGRANTx0,
+  //主设备1
+  input HBUSREQx1,
+  input HLOCKx1,
+  output reg HGRANTx1,
+  //主设备2
+  input HBUSREQx2,
+  input HLOCKx2,
+  output reg HGRANTx2,
+  //主设备3
+  input HBUSREQx3,
+  input HLOCKx3,
+  output reg HGRANTx3,
+
+  //地址和控制信号线
+  input [31:0] HADDR,
+  input [3:0] HSPLIT,
+  input [1:0] HTRANS,
+  input [2:0] HBURST,
+  input [1:0] HRESP,
+  input HREADY,
+
+  //总线复位
+  input HRESETn,
+  //总线时钟
+  input HCLK,
+
+  //从设备信号线
+  // MASTER: which signal owns the current address phase
+  output [3:0] HMASTER,
+  // MASTERD: which signal owns the current data phase
+  output [3:0] HMASTERD,
+  output HMASTLOCK
+);
+```
+
+这是仲裁器的总线接口
+
+```verilog
+/*
+本地寄存器
+*/
+//输出本地寄存器
+reg [3:0] HMASTER_l;
+reg [3:0] HMASTERD_l;
+reg HMASTLOCK_l; //HMASTLOCK的缓存
+
+/*
+控制信号
+*/
+reg [1:0] grant; //标明现在拥有总线控制权的设备
+reg [1:0] next_grant; //下个传输周期拥有总线控制权的设备
+
+reg is_degrant; //确认下个周期是否是上个传输的最后一个周期以便总线能安全使用
+wire is_locked; //确认当前传输是否被锁定
+reg is_fixed_length; //确认当前传输数据长度是否固定
+reg is_split; //从设备是否返回一个分割交易信号
+reg is_retry; //从设备是否返回一个RETRY信号
+
+reg [6:0] count; //传输时钟周期的计数器
+reg [6:0] next_count; //下个传输周期还剩下多少时钟周期结束
+
+reg [3:0] req_mask; //屏蔽来自分割交易主设备的请求，如果对应位是1则不会屏蔽；如果是0则会屏蔽并需要等待从设备的HSPLIT
+reg [3:0] next_req_mask; //下个周期的req_mask值
+```
+
+上面部分统一实现了仲裁器内部的控制寄存器和输出寄存器，带`next`的寄存器变量都是用于预存下个周期的数据，该部分代码相当于经典三段式状态机的第一段
+
+实现上，仲裁器输出可以用多个mealy状态机的组合实现：在一次普通传输中，总线主设备首先通过HBUSREQx请求总线使用权，仲裁器在HCLK上升沿采样请求，随后在内部判断访问总线的下一个主设备。仲裁器通过HGRANTx信号线和HMASTER[3:0]信号线授权主设备。主设备获取授权后可以选择通过拉高HLOCKx信号锁定访问总线，仲裁器在HCLK上升沿采样该信号后会锁定总线并阻止其他设备获取总线控制权。所有操作都要发生在总线空闲也就是HRADY为高时
+
+需要解释一下**默认主设备**的概念：每个系统必须包含一个默认主设备——如果其他所有主设备不能使用总线，则授权主设备使用总线且它只能执行空闲传输；如果其他主设备都在等待分割交易，则必须给默认主设备授权总线。这是为了便于降低功耗总线。下面的代码就是默认主设备的输出——默认主设备会一直保持下面的总线驱动方式
+
+```verilog
+assign HTRANS = `HTRANS_IDLE;
+assign HLOCK = 1'b0;
+
+assign HADDR = 32'b0;
+assign HWRITE = 1'b0;
+assign HSIZE = 3'b0;
+assign HBURST = 3'b0;
+assign HWDATA = 32'b0;
+```
+
+特别地，在猝发传输时，仲裁器授权主设备获取总线没有必要继续请求总线以便完成传输，仲裁器应使用HBURST[2:0]信号决定主设备请求的传输个数，如果主设备希望在当前正在进行的传输之后执行另一个猝发，主设备需要在猝发中重新拉高HLOCKx；对于未定长度的猝发，主设备应继续请求，直到已经开始最后一次传输。猝发传输结束时，最后一个地址采样的同时仲裁器会采样新的HGRANTx数据
+
+下面是负责控制输出的电路
+
+```verilog
+/*
+输出逻辑
+*/
+//HMASTLOCK信号生成电路
+//当且仅当总线被授权且对应的HLOCKx拉高时才允许HMASTLOCK生成
+always @ (*) begin
+  if((HGRANTx0 && HLOCKx0) || (HGRANTx1 && HLOCKx1) || (HGRANTx2 && HLOCKx2) || (HGRANTx3 && HLOCKx3)) 
+  begin
+    HMASTLOCK_l = 1'b1;
+  end
+  else
+  begin
+    HMASTLOCK_l = 1'b0;
+  end
+end
+assign HMASTLOCK = HMASTLOCK_l;
+
+//HGRANTx信号生成电路:
+//基于以下优先级（从高到低）实现
+//Master 3
+//Master 0 （Dummy Master）
+//Master 2
+//Master 1
+always @ (posedge HCLK or negedge HRESETn) begin //状态转移部分
+    if(!HRESETn) begin //复位
+    grant <= 2'b01; //默认主设备
+  end
+  else begin
+    if((is_locked && (HRESP == `HRESP_SPLIT)) ||
+       (HGRANTx1 && HRESP == `HRESP_SPLIT && !HBUSREQx2 && !HBUSREQx3) ||
+       (req_mask == 4'b0)) begin
+      grant <= 2'b00; //Master 2 次高优先级 但一直作为Dummy Master保留
+    end
+    else if(is_degrant) begin
+      grant <= next_grant; //如果总线正被占用则轮转切换grant状态
+    end
+  end
+end
+
+always @ (*) begin //状态更新部分
+  if(HBUSREQx3 && req_mask[3]) begin
+    next_grant = 4'h3; //Master 3 最高优先级
+  end
+  else if(HBUSREQx2 && req_mask[2]) begin
+    next_grant = 4'h2; //Master 2 第三优先级
+  end
+  else begin
+    next_grant = 4'h1; //Master 1 最低优先级
+  end
+end
+
+always @ (*) begin //输出部分
+  //清除旧值
+  HGRANTx0 = 1'b0;
+  HGRANTx1 = 1'b0;
+  HGRANTx2 = 1'b0;
+  HGRANTx3 = 1'b0;
+  //输出新值
+  case(grant) 
+    4'h3: HGRANTx3 = 1'b1;
+    4'h2: HGRANTx2 = 1'b1;
+    4'h1: HGRANTx1 = 1'b1;
+    4'h0: HGRANTx0 = 1'b1;
+  endcase
+end
+
+//HMASTER信号生成电路
+//当且仅当HREADY拉高时再更新HMASTER；切换grant信号则表示最终传输已经被从设备缓存，新的主设备接管了总线
+always @ (posedge HCLK or negedge HRESETn) begin
+  if(!HRESETn) begin
+    HMASTER_l <= 2'b01; //默认主设备
+  end
+  else if(HREADY) begin
+    HMASTER_l <= grant;
+  end
+end
+assign HMASTER = HMASTER_l;
+
+//HMASTERD信号生成电路
+//只有当HREADY拉高时更新HMASTERD
+always @ (posedge HCLK or negedge HRESETn) begin //输出部分
+  if(!HRESETn) begin
+    HMASTERD_l <= 0;
+  end
+  else begin
+    if(HREADY) begin
+      HMASTERD_l <= HMASTER_l;
+    end
+    else begin
+      HMASTERD_l <= HMASTERD_l;
+    end
+  end
+end
+assign HMASTERD = HMASTERD_l;
+```
+
+下面是各个信号的判断电路
+
+总线需要监视来自各个主设备的HLOCKx信号，为了确定主设备何时希望执行一个锁定连续传输
+
+```verilog
+//is_degrant判断逻辑
+always @ (*) begin
+  if((HGRANTx0 && !HBUSREQx0) || 
+     (HGRANTx1 && !HBUSREQx1) ||
+     (HGRANTx2 && !HBUSREQx2) ||
+     (HGRANTx3 && !HBUSREQx3)) begin
+    is_degrant = 1'b1; 
+  end
+  //如果当前传输为IDLE状态，可以安全地将总线授权给主设备
+  else if(HTRANS == `HTRANS_IDLE)
+  begin
+    is_degrant = 1'b1;
+  end
+  //如果当前传输是定长且下次传输是最终传输周期，可以安全地将总线授权给主设备
+  else if(is_fixed_length && 
+         (!is_locked) && 
+         (next_count == 1'b0 || next_count == 1'b1)) begin
+    is_degrant = 1'b1;
+  end
+  //如果出现分割交易，可以安全地将总线授权给主设备
+  else if(is_split) begin
+    is_degrant = 1'b1;
+  end
+  //如果出现分割RETRY信号，可以安全地将总线授权给主设备
+  else if(is_retry) begin
+    is_degrant = 1'b1;
+  end
+  //否则不可以将总线授权给主设备
+  else begin
+    is_degrant = 1'b0;
+  end
+end
+
+//is_locked信号控制电路
+assign is_locked = (HGRANTx0 && HLOCKx0) ||
+                   (HGRANTx1 && HLOCKx1) ||
+                   (HGRANTx2 && HLOCKx2) ||
+                   (HGRANTx3 && HLOCKx3);
+//出现任意一个设备占用总线时都会锁住总线
+
+//is_fixed_length信号控制电路（时序逻辑）
+always @ (posedge HCLK or negedge HRESETn) begin
+  if(!HRESETn) begin
+    is_fixed_length <= 1'b0;
+  end
+  else begin
+      case(HBURST)  //分状态控制
+      `HBURST_SINGLE: is_fixed_length <= 1'b0;
+      `HBURST_INCR:   is_fixed_length <= 1'b0;
+      `HBURST_WRAP4:  is_fixed_length <= 1'b1;
+      `HBURST_INCR4:  is_fixed_length <= 1'b1;
+      `HBURST_WRAP8:  is_fixed_length <= 1'b1;
+      `HBURST_INCR8:  is_fixed_length <= 1'b1;
+      `HBURST_WRAP16: is_fixed_length <= 1'b1;
+      `HBURST_INCR16: is_fixed_length <= 1'b1;
+    endcase
+  end
+end
+
+//is_split、is_retry控制电路（时序逻辑）
+always @ (posedge HCLK or negedge HRESETn) begin
+  if (!HRESETn) begin
+    is_split <= 1'b0;
+  end
+  else begin
+      if(HRESP == `HRESP_SPLIT) begin //直接读取从设备回传信号
+      is_split <= 1'b1;
+    end
+    else begin
+      is_split <= 1'b0;
+    end
+  end
+end
+
+always @ (posedge HCLK or negedge HRESETn) begin
+  if (!HRESETn) begin
+    is_retry <= 1'b0;
+  end
+  else begin
+    if(HRESP == `HRESP_RETRY) begin
+      is_retry <= 1'b1;
+    end
+    else begin
+      is_retry <= 1'b0;
+    end
+  end
+end
+```
+
+下面的电路则是典型的计数器处理状态机
+
+```verilog
+//next_count计算和更新电路（状态机）
+always @ (*) begin
+  //如果HTRANS为NONSEQ，重置计数器
+  if(HTRANS == `HTRANS_NONSEQ)
+  begin
+    if(HREADY) begin //如果HREADY拉高，则当前传输会在下一时钟周期结束，计数器清零后-1
+      case(HBURST) //猝发传输控制
+        `HBURST_SINGLE: next_count = 6'h0;
+        `HBURST_INCR:   next_count = 6'h20; //使用第6位指示INCR
+        `HBURST_WRAP4:  next_count = 6'h3;
+        `HBURST_INCR4:  next_count = 6'h3;
+        `HBURST_WRAP8:  next_count = 6'h7;
+        `HBURST_INCR8:  next_count = 6'h7;
+        `HBURST_WRAP16: next_count = 6'hf;
+        `HBURST_WRAP16: next_count = 6'hf;
+      endcase
+    end
+    else begin
+      case(HBURST)
+        `HBURST_SINGLE: next_count = 6'h1;
+        `HBURST_INCR:   next_count = 6'h20; //使用第6位指示INCR
+        `HBURST_WRAP4:  next_count = 6'h4;
+        `HBURST_INCR4:  next_count = 6'h4;
+        `HBURST_WRAP8:  next_count = 6'h8;
+        `HBURST_INCR8:  next_count = 6'h8;
+        `HBURST_WRAP16: next_count = 6'h10;
+        `HBURST_WRAP16: next_count = 6'h10;
+      endcase
+    end
+  end
+  else if(HTRANS == `HTRANS_BUSY)begin //BUSY状态
+    next_count = count;
+  end
+  else if(HTRANS == `HTRANS_IDLE)begin //IDLE状态
+    next_count = 6'h0;
+  end
+  else begin //普通情况基于上一周期的计数器进行计算
+    if(HREADY) begin
+      if(count[5] == 1) begin
+        next_count = count; //如果计数器溢出则保留值
+      end
+      else begin
+        next_count = count - 1; //正常情况-1
+      end
+    end
+    else begin
+      next_count = count; //如果HREADY拉低，说明传输未开始，不改变计数器
+    end
+  end
+end
+
+always @ (posedge HCLK or negedge HRESETn) begin //更新/复位计数器
+  if (!HRESETn) begin
+    count <= 6'b0;
+  end
+  else begin
+    count <= next_count;
+  end
+end
+```
+
+下面的电路负责分割交易时的主设备掩码处理
+
+```verilog
+//next_req_mask和req_mask计算/更新电路
+always @ (*) begin
+  //基于HSPLIT信号控制HBUSREQ掩码
+  next_req_mask = req_mask | HSPLIT;
+  if(is_split) begin //如果出现分割交易则使用掩码机制
+    case(HMASTER)
+      2'b00: next_req_mask[0] = 1'b0;
+      2'b01: next_req_mask[1] = 1'b0;
+      2'b10: next_req_mask[2] = 1'b0;
+      2'b11: next_req_mask[3] = 1'b0;
+    endcase
+  end
+end
+
+always @ (posedge HCLK or negedge HRESETn) begin //复位与更新req_mask
+  if(!HRESETn) begin
+    req_mask <= 4'b1111;
+  end
+  else begin
+    req_mask <= next_req_mask;
+  end
+end
+```
+
+**早期猝发停止**：在一般的猝发传输结束之前，仲裁器不会把总线移交给一个新的主设备，但是如果仲裁器决定必须提前终止猝发来防止过长的总线访问时间时，他可能在一个猝发完成之前将总线授权转移给另一个总线主设备。这种情况称为早期猝发停止。主设备授权总线控制权后，它**必须重新断言总线请求（包括HBURST、HTRANS信号）**来完成猝发传输。
+
+协议建议但并不规定：主设备在任何锁定连续传输之后插入一个空闲传输，以提供给仲裁器在准备另一个猝发传输之前改变总线授权的机会
 
 ### 分割交易详解
 
-
+**分割交易**也称为**分割传输**：根据从设备的响应操作来分割主设备操作
 
 
 
@@ -343,11 +798,9 @@ HRESETn是AHB协议中唯一的低电平有效信号，并且是所有总线设�
 
 ### 一套开源的AHB总线实现
 
-GitHub上的一套开源[AHB总线实现](https://github.com/Lianghao-Yuan/AHB_Bus_Matrix)
+GitHub上的一套开源[AHB总线实现](https://github.com/Lianghao-Yuan/AHB_Bus_Matrix)，**上述代码全部以该repo为例**
 
-
-
-
+感兴趣的读者可以翻阅源码
 
 ## AXI4规范
 

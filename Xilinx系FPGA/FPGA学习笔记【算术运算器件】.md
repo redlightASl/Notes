@@ -1,22 +1,189 @@
 # 加法器
 
+最简单的加法器拓扑中，一个n位二进制加法器由n个全加器构成，每个全加器由两个半加器构成
 
+### 半加器和全加器
 
+两个二进制数相加的真值表如下所示
 
+| 加数a | 加数b | 进位cout | 和sum |
+| ----- | ----- | -------- | ----- |
+| 0     | 0     | 0        | 0     |
+| 0     | 1     | 0        | 1     |
+| 1     | 0     | 0        | 1     |
+| 1     | 1     | 1        | 0     |
 
+也就是说，存在以下逻辑关系：
 
+$$
+cout = a\oplus b\\
+sum = a \& b
+$$
+在verilog中，使用以下代码描述半加器
 
+```verilog
+module half_add1 (
+	input a,
+    input b,
+	output cout,
+    output sum
+);
+    assign cout = a ^ b;
+    assign sum = a & b;
+endmodule
+```
 
+半加器只有两个输入端，无法处理来自前一位的进位数据，因此不能处理多位二进制数加法，可以改进出全加器，如下图所示
+
+![image-20211122164454345](FPGA学习笔记【算术运算器件】.assets/image-20211122164454345.png)
+
+**全加器可看作一个三路表决器处理进位输出，一个三变量异或电路处理加和输出**
+
+**全加器也可以看作两个半加器串联构成**
+
+![image-20211122164722951](FPGA学习笔记【算术运算器件】.assets/image-20211122164722951.png)
+
+在verilog中，可以直接用`+`运算符表示加法器
+
+```verilog
+`define BITS 31
+module Sub(
+    input[BITS:0] a,
+	input[BITS:0] b,
+	input cin,
+    output[BITS:0] sum,
+	output cout
+);
+    assign {cout,sum} = a+b;
+endmodule
+```
+
+也可以调用半加器模块形成一个全加器
+
+```verilog
+module HalfSum(
+	input a,
+    input b,
+	output cout,
+    output sum
+);
+    assign cout = a ^ b;
+    assign sum = a & b;
+endmodule
+
+module Sum(
+    input a,
+	input b,
+	input cin, //前一级进位输入
+    output sum,
+	output cout
+);
+    wire temp_sum;
+    wire temp_cout_A;
+    wire temp_cout_B;
+    
+    assign cout = temp_cout_A & temp_cout_B;
+    
+    HalfSum A(
+        .a(cin),
+        .b(temp_sum),
+        .cout(temp_cout_A),
+        .sum(sum)
+    );
+    
+    HalfSum B(
+        .a(a),
+        .b(b),
+        .cout(temp_cout_B),
+        .sum(temp_sum)
+    );
+endmodule
+```
+
+将n个加法器级联起来就可形成**n位串行进位二进制加法器**
+
+如果将前一个加法器的进位输出直接输出，这样就可以节省一个进位的时钟周期，让加法器单元可以并行排列实现计算，加快速度；但同时由于进位需要单独处理，和也需要在最后与进位相加，还需要引入对应的加法电路——最后可以改进出**n位超前进位加法器**
+
+一个四位超前进位加法器的verilog实现如下所示
+
+```verilog
+module Adder (
+  	input[3:0] a,
+    input[3:0] b,
+  	input c_in,
+    output[3:0] sum,
+  	output c_out
+   	);
+    
+    wire[4:0] g,p,c;
+    
+    assign c[0] = c_in;
+    assign p = a | b;
+    assign g = a & b;
+    assign c[1] = g[0]|(p[0]&c[0]);
+    assign c[2] = g[1]|(p[1]&(g[0]|(p[0]&c[0])));
+    assign c[3] = g[2]|(p[2]&(g[1]|(p[1]&(g[0]|(p[0]&c[0])))));
+    assign c[4] = g[3]|(p[3]&(g[2]|(p[2]&(g[1]|(p[1]&(g[0]|(p[0]&c[0])))))));
+    assign sum = p ^ c[3:0];
+    assign c_out = c[4];
+endmodule
+```
+
+这是一种典型的用空间换时间优化思路
 
 # 减法器
 
+电路中的有符号数通常使用**补码**表示
 
+> 取负数的补码即将它按位取反后加1
+>
+> 如`a`是一个负数，其补码表示为`~a+1`
 
+因此对于减法，可以理解为“加一个有符号负数”
 
+即`a+(-b) = a+(~b+1) = a+(~b)+1`
 
+在电路实现上，对加法器进行如下变换：
 
+1. 信号a不变
+2. 将信号b按位取反
+3. 将输入进位位置1
+
+这样就可以把加法器（全加器）改为减法器
+
+下面的代码展示了一个减法器模块
+
+```verilog
+`define BITS 31
+module Sub(
+    input[BITS:0] a,
+	input[BITS:0] b,
+	input cin,
+    output[BITS:0] diff,
+	output cout
+);
+    assign {cout,diff} = a + (~b) + 1;
+endmodule
+```
+
+但是现在的综合器一般都比较智能，可以直接用`a-b`进行减法运算
+
+```verilog
+`define BITS 31
+module Sub(
+    input[BITS:0] a,
+	input[BITS:0] b,
+	input cin,
+    output[BITS:0] diff,
+	output cout
+);
+    assign {cout,diff} = a-b;
+endmodule
+```
 
 # 乘法器
+
+乘法器基于移位和加法器构成
 
 
 
@@ -330,7 +497,7 @@ verilog实现如下
 
 # DSP
 
-
+数字信号处理（DSP）核一般会在高速的加法器、减法器、乘法器、除法器基础上引入**乘加器**（用一个时钟周期即可完成n位乘加运算）、**桶形移位器**（常用于定点数重定标）、**长流水线**等结构
 
 
 

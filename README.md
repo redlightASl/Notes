@@ -14,7 +14,9 @@
 
 ### 硬广告植入
 
-欢迎到我的[CSDN](https://blog.csdn.net/qq_40500005?spm=1011.2124.3001.5343)博客上看看，所有已经完成的博文都会发布到这里
+欢迎到我的[CSDN](https://blog.csdn.net/qq_40500005?spm=1011.2124.3001.5343)博客上看看，~~所有已经完成的博文都会发布到这里~~
+
+现在大部分博文已经迁移到基于Github Pages的自建站上，欢迎来看看[红光今天吃什么](https://redlightasl.github.io/)
 
 推荐使用[Typora](https://www.typora.io/)或VSCode（配合MarkDown插件）查看笔记
 
@@ -26,8 +28,11 @@ All my notes will be upload to this remote repository,including a lot of "cookie
 
 Update irregularly!
 
+And welcome to visit my blogs in [Redlight's home](https://redlightasl.github.io/)
+
 All of my notes in this repository were edited by **Typora** and **VSCode**,It was recommended to check them using a editor which supports *Markdown* and *LaTex*
 
 It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/) or **VSCode**.Besides,here's an interesting [theme](https://github.com/yfzhao20/Typora-markdown) for Typora,enjoy it!
 
 Mindmaps were edited by **XMind**,you can download it from net and check out these notes.
+

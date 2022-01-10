@@ -22,7 +22,7 @@
 
 首先进github，开个账号，我有账号了，所以跳过
 
-然后新建一个库，命名为``redlightASl.github.io`，里面新建一个README文档，其他就不用写了
+然后新建一个库，命名为`redlightASl.github.io`，里面新建一个README文档，其他就不用写了
 
 建完后，访问`https://redlightasl.github.io/`即可看到网页了
 
@@ -94,5 +94,39 @@ hexo s
 >
 >     如果使用主题需要把对应的主题加入这个目录然后在_config.yml里面进行设置；这个结构有点像cmake的component机制，相当于hexo把主题和用户的文件统一编译
 
+### 开始搭建
 
+首先要配置hexo的`_config.yml`文件
+
+```yaml
+url: 这里写自己github pages生成网页的url
+root: /
+
+deploy:
+  type: 'git'
+  repository: 这里写自己github pages的repo url
+  branch: master
+```
+
+主要的配置就是上面两个，需要正确配置才能实现`hexo d`自动部署
+
+其他的选项直接参考网上配置教程，一搜一大堆
+
+然后选择了一个顺眼的主题：yilia
+
+这个主题用的人还蛮多的，还有一个plus版本，笔者看它顺眼就直接用了
+
+只要按照它[github页面](https://github.com/litten/hexo-theme-yilia)的安装指导就可以完成配置，还是比较简单的。依靠里面的选项就可以完成大部分网站自定义工作
+
+如果想要进一步个性化就需要再修改里面的.ejs文件。很多语句都可以直接复制其他主题的，所以需要什么新功能直接上网查抄代码就行
+
+大致配完主题以后就是部署了
+
+添加几个测试用的文件，然后`hexo g`生成页面，再`hexo d`自动部署就算搭建完毕
+
+### 我的配置
+
+我的个人页面配置可以在[github repo](https://github.com/redlightASl/redlightASl.github.io)里找到
+
+仅供参考
 

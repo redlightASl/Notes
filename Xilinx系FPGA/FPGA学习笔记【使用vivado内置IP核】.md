@@ -8,7 +8,7 @@ Vivado内置了使用FPGA中时钟资源实现的时钟IP核，可以实现分�
 
 Xilinx的7系列FPGA都配置了专用的**全局**时钟和**区域**时钟资源
 
-CMT（Clock Management Tiles时钟管理片）提供时钟合成（Clock frequency synthesis）、倾斜校正（deskew）、抖动过滤（jitter filtering）的功能。1个CMT中包括1个MMCM混合时钟管理电路和1个PLL锁相环电路
+**CMT**（Clock Management Tiles时钟管理片）提供时钟合成（Clock frequency synthesis）、倾斜校正（deskew）、抖动过滤（jitter filtering）的功能。1个CMT中包括1个MMCM混合时钟管理电路和1个PLL锁相环电路
 
 不同的FPGA包含的CMT数量不一样
 
@@ -16,9 +16,25 @@ FPGA中的CMT被分为了多个时钟区域（Clock Region），时钟区域可�
 
 ## FPGA时钟IP核的使用
 
-在【IP Catalog】搜索clock出现clock wizard，双击即可进行设置
+在【IP Catalog】搜索clock出现`clock wizard`，双击即可进行设置
 
 配置好自定义选项后生成IP核代码，打开IP视图可以找到示例的例化代码，将其复制到顶层模块，在顶层模块中加入IP核相关代码的例化就可以使用IP核了。
+
+主要能使用的选项是
+
+* PLL与MMCM选择
+
+    分别对应FPGA内部的PLL和MMCM资源
+
+    PLL是模拟电路实现，相对于MMCM产生时钟的频率更加精准，而且时钟抖动过滤效果也更好；但PLL无法动态调整相位
+
+    MMCM（Mix Mode Clock Manager混合模式时钟管理器）实际上就是PLL+DCM相移功能的结合体——这是一个PLL，加上了DCM的一小部分以进行精细的相移（这就是它被称为混合模式的原因：PLL是模拟电路，但是DCM使用数字方法实现相移）
+
+* 抖动设置：设置优化目标是“减小输出抖动”还是“加大输入抖动抑制”
+
+* 时钟特性设置
+
+* 输入时钟频率和输出时钟频率
 
 # RAM IP核的使用
 

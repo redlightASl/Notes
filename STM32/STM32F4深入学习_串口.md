@@ -26,7 +26,7 @@ stm32的通用同步异步收发器可支持以下特性：
     >
     > ![image-20211201082419103](STM32F4深入学习_串口.assets/image-20211201082419103.png)
 
-    * 可编程的16倍活8倍过采样
+    * 可编程的16倍或8倍过采样
     * 使用小数波特率发生系统实现的可编程的收发波特率
     * 可编程的数据位长度（8位/9位）
     * 可编程的停止位（1位/2位）
@@ -79,7 +79,7 @@ stm32的通用同步异步收发器可支持以下特性：
 
 发送器可发送8位或9位数据，通过M位控制
 
-当发送使能位TE置为1时，USART发送控制器会将发送移位寄存器的数据在TX引脚输出，同步输出SCLK时钟
+**当发送使能位TE置为1时，USART发送控制器会将发送移位寄存器的数据在TX引脚输出，同步输出SCLK时钟**
 
 发送控制器会读取发送寄存器TDR中的数据，根据控制寄存器的设置把数据、停止位、校验位输入发送移位寄存器，输入时间位于上一轮发送完成时，整个过程相当于并入串出
 
@@ -93,7 +93,28 @@ TXE位由硬件置1，表示：
 
 当且仅当TXEIE位置1时，该标志位会生成一个串口中断
 
+发送时，要传入USART_DR寄存器的写指令中存有TDR寄存器中的数据，该数据将在当前发送结束时复制到移位寄存器中。未发送时，要传入USART_DR寄存器的写指令直接将数据置于移位寄存器中，数据发送开始时，TXE位立即置1。
 
+如果帧已发送且TXE寄存器置1，TC位将变为高电平。向USART_DR寄存器中写入最后一个数据后，必须等待TC=1，之后才可禁止USART或让设备进入低功率模式，TC位可以通过以下两种情况之一清零：
+
+* 从USART_SR寄存器读取数据
+* 向USART_DR寄存器写入数据
+
+> 允许向TC位写入0将其强制清零
+
+![image-20220118234101970](STM32F4深入学习_串口.assets/image-20220118234101970.png)
+
+> **将SBK位置1将发送一个中断字符**。如果软件在中断发送开始前对SBK位进行了复位，将不会发送中断字符。对于两个连续的中断，应在上一个中断的停止位发送完成后将SBK位置1
+>
+> **数据发送期间不应复位TE位，因为这样会导致波特率计数器冻结**；而将TE位置1会让USART在第一个数据帧之前发送一个空闲帧
+
+TE：发送使能位
+
+TXE：发送空闲标志位
+
+TXEIE：串口中断标志位
+
+TC：串口忙碌标志位
 
 ### 接收
 
@@ -104,6 +125,8 @@ TXE位由硬件置1，表示：
 
 
 ### 时钟控制
+
+
 
 
 
@@ -614,53 +637,165 @@ ITStatus USART_GetITStatus(USART_TypeDef* USARTx, uint16_t USART_IT)
 
 
 
-### 基本串口收发
+### 串口收发
 
 **串口发送数据最直接的方式就是标准调用库函数**，本质上是操作串口控制寄存器和数据寄存器
 
 使用USART_SendData()发送数据；使用USART_ReceiveData()接收数据
 
+```c
+void Send_data(USART_TypeDef * USARTx,u8 *s)
+{
+	while(*s!='\0')
+	{ 
+		while(USART_GetFlagStatus(USARTx, USART_FLAG_TC)==RESET);	
+		USART_SendData(USARTx, *s);
+		s++;
+	}
+}
+```
 
+这里改进了一下原函数（原函数只能发送单个字符），只要使用Send_data就可以发送字符串，同时可以适用于各种串口
 
+而串口数据的接收一般采用中断辅助，下面是一个典型例子
 
+```c
+#define Max_BUFF_Len 32
 
+unsigned char Uart_Buffer[MAX_BUFF_LEN];
+unsigned int UART_RX_FLAG=0;
 
+void USARTx_IRQHandler() //串口中断服务函数
+{
+	if(USART_GetITStatus(USARTx,USART_IT_RXNE) != RESET) //中断产生 
+	{
+		USART_ClearITPendingBit(USARTx, USART_IT_RXNE); //清除中断标志位
+        
+		Uart_Buffer[UART_RX_FLAG] = USART_ReceiveData(USARTx); //接收串口数据到缓冲区
+		UART_RX_FLAG++; 
 
-### 串口中断收发
+        //人为设置一个标识符0x0a用于指示本次传输的结尾
+        //传输到结尾或者等于最大接受数就清空重新接收
+		if(Uart_Buffer[UART_RX_FLAG - 1] == 0x0a || UART_RX_FLAG == MAX_BUFF_LEN) 
+		{
+			if(Uart_Buffer[0] == 0x0b) //检测到头标识是指定的0x0b，标志后续数据有效
+			{
+				deal_with_data(); //数据处理
+				UART_RX_FLAG=0;                                   
+			} 
+			else
+			{
+				UART_RX_FLAG=0; //重新接收
+			}
+		}
+	}
+}
+```
 
+但是中断一次就接收一个字符这种形式会导致频繁的后台中断，影响系统的实时性，非常消耗CPU资源，特别是在加入RTOS的情况下，由于出现大量后台中断，在需要接收大量数据或波特率很高的情况下可能导致数据丢失问题
 
+可以使用DMA辅助串口接收，如下所示
 
+```c
+#define DMA_USART_RECEIVE_LEN 32
 
+void USARTx_IRQHandler(void)                                 
+{     
+    u32 temp = 0;  
+    u8 i = 0;  
+      
+    if(USART_GetITStatus(USARTx, USART_IT_IDLE) != RESET) //串口中断
+    {
+        USART_ClearITPendingBit(USARTx, USART_IT_RXNE); //清除中断标志位
+        
+        DMA_Cmd(DMA1_Channel5,DISABLE); //关闭DMA，防止读取数据过程中数据被DMA覆盖
+        //接收的字符串长度=设置的接收长度-剩余DMA缓存大小
+        temp = DMA_USART_RECEIVE_LEN - DMA_GetCurrDataCounter(DMAx_Channeln);
+        for (i = 0; i < temp; i ++)
+        {
+			Uart_Buffer[i] = USARTx_RECEIVE_DMA_Buffer[i];  
+        }
+        //设置传输数据长度  
+        DMA_SetCurrDataCounter(DMAx_Channeln, DMA_USART_RECEIVE_LEN);  
+        //打开DMA，开始传输
+        DMA_Cmd(DMAx_Channeln, ENABLE);  
+    }        
+} 
+```
 
+同样地，DMA也能用于带RTOS的设备上进行数据发送
 
+```c
+#define DMA_USART_RECEIVE_LEN 32
 
-
-
-### DMA串口收发
-
-
-
-
-
-
+void DMA_SEND_EN(void) //使能DMA发送功能
+{
+	DMA_Cmd(DMAx_Channeln, DISABLE);
+	DMA_SetCurrDataCounter(DMAx_Channeln, DMA_USART_RECEIVE_LEN);   
+	DMA_Cmd(DMAx_Channeln, ENABLE);
+}
+//DMA会直接将数据从DMA通道搬运到USART外设发送出去，不会再占用VPU资源
+```
 
 ### 使用RTOS的串口驱动
 
+在有RTOS的情况下，可以很方便地使用消息队列或邮箱等线程间通讯工具实现串口收发，并且在一些RTOS上还提供了文件形式的串口读写，可以很方便地实现实时性要求不高的操作
 
+```c
+#define UART_QUEUE_SIZE 5
+#define UART_QUEUE_LENGTH sizeof(uint8_t)
+#define UART_TEMP_BUFFER_SIZE 64
 
+QueueHandle_t UartQueue_handle;
 
+uint8_t Uart_rx_cnt; //字节大小计数值
+uint8_t* Uart_rx_pointer; //缓存区指针
+uint8_t* Uart_rx_pointer_head; //缓存区首地址指针
 
+uint8_t uart_temp_data; //每次中断接收的数据
 
+void USARTx_IRQHandler() 
+{
+	disable_interrupt(); //进入临界区
+    if(USART_GetFlagStatus(USARTx, USART_FLAG_RXNE) != RESET) //中断产生 
+    {
+        USART_ClearFlag(USARTx, USART_FLAG_RXNE); //清除中断标志
+        uart_temp_data = USART_ReceiveData(USARTx);
+        if(uart_temp_data == 0x0b) //接收到数据头标识
+        {
+            Uart_rx_pointer = (xSize)pvPortMalloc(UART_TEMP_BUFFER_SIZE*UART_QUEUE_LENGTH); //分配缓存区
+            Uart_rx_pointer_head = Uart_rx_pointer;
+        }
+        if(uart_temp_data == 0x0a) //接收到尾标志
+        {
+            *Uart_rx_pointer++ = uart_temp_data;
+            Uart_rx_cnt++; //字节大小增加
+            xQueueGenericSend(UartQueue_handle, Uart_rx_pointer_head, 0, queueSEND_TO_BACK); //发送消息
+            Uart_rx_pointer = NULL; //将指针指向为空，防止修改
+			Uart_rx_cnt = 0; //字节大小计数清零
+        }
+        else
+        {
+            *Uart_rx_pointer = uart_temp_data; //储存接收到的数据
+			Uart_rx_pointer++;
+			Uart_rx_cnt++;
+        }
+    }
+	ensable_interrupt(); //退出临界区
+}
 
+//串口数据处理任务
+void uart_task(void *param)
+{
+    UartQueue_handle = xQueueGenericCreate(UART_QUEUE_SIZE, UART_QUEUE_LENGTH, NULL, NULL, queueQUEUE_TYPE_BASE);
+    //创建消息队列
 
-
-
-
-
-
-
-
-
-
-
-
+	uint8_t Uart_data_size[UART_TEMP_BUFFER_SIZE];
+	u8 *p;
+	
+	while(1)
+	{
+        xQueueReceive(UartQueue_handle, Uart_data_size, portMAX_DELAY);	//接收数据到前台任务，进行处理
+	}
+}
+```

@@ -799,7 +799,7 @@ rt_err_t rt_mq_urgent(rt_mq_t mq, void *buffer, rt_size_t size)
 
 4. 接收消息
 
-当消息队列中有消息时，接收者接收消息；否则会根据超时时间设置，挂在等待线程队列上火直接返回
+当消息队列中有消息时，接收者接收消息；否则会根据超时时间设置，挂在等待线程队列上或直接返回
 
 ```c
 rt_err_t rt_mq_recv(rt_mq_t    mq,//消息队列对象句柄

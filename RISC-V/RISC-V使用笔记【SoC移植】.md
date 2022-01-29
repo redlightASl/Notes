@@ -140,7 +140,38 @@ endmodule
 
 主要更改了时钟总线和SoC的连接，并且通过IP Catalog例化一个复位模块接入SoC，如下所示：
 
-![image-20220114011451614](RISC-V使用笔记【SoC移植】.assets/image-20220114011451614.png)
+```verilog
+mmcm ip_mmcm
+(
+    .resetn(ck_rst),
+    .clk_in1(CLK50MHZ),
+    .clk_out1(clk_16M), //16MHz clock
+    .clked(mmcm_locked)
+);
+
+assign ck_rst = fpga_rst & mcu_rst;
+
+divide div
+(
+    .clk(clk_16M),
+    .rst_n(ck_rst),
+    .clkout(CLK32768KHZ)
+);
+
+reset_sys ip_reset_sys
+(
+    .slowest_sync_clk(clk_16M),
+    .ext_reset_in(ck_rst), //Active low
+    .aux_reset_in(1'b1),
+    .mb_debug_sys_rst(1'b0),
+    .dcm_locked(mmcm_locked),
+    .mb_reset(),
+    .bus_struct_reset(),
+    .peripheral_reset(reset_periph),
+    .interconnect_aresetn(),
+    .peripheral_aresetn()
+);
+```
 
 这里的`reset_sys`模块就是从Xilinx IP中例化的复位模块，需要改动的部分只有其中的`mmcm_locked`和`clk_16M`——这两个引脚。divide模块就是自己实现的分频器，这里的`CLK32768KHZ`总线就是用于输入SoC的低频时钟
 

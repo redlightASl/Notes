@@ -41,6 +41,30 @@
 
 
 
+## ESP-IoT-Solution
+
+这是l乐鑫提供的一套针对ESP32系列SoC的外设驱动和代码框架，作为ESP-IDF的补充组件使用，内置了
+
+* I2C、SPI的总线驱动抽象
+* I2S LCD外设驱动抽象
+* 数码管控制芯片驱动抽象
+* 官方开发板的BSP（板级支持包）及一套通用BSP开发框架
+* 常用显示屏外设抽象
+* 多种LED闪烁灯效
+* PWM音频与DAC音频外设抽象
+* LVGL图形库
+* 按键与触摸屏外设抽象
+* 常用的温湿度、环境光等传感器外设抽象
+* 舵机控制器抽象
+* SPI Flash、SD卡、eMMC、EEPROM等存储设备的外设驱动抽象和虚拟文件系统
+* 一套针对ESP32系列SoC的加密和安全启动方案
+
+更多信息可以参考[官方文档](https://docs.espressif.com/projects/espressif-esp-iot-solution/zh_CN/latest/index.html)
+
+使用ESP-IoT-Solution的SPI驱动库可以非常快速地实现SPI功能，并且速度损失较小，如果有快速部署需求的话完全可以依托这个组件进行物联网开发
+
+这个库里面的所有项目都是基于C面向对象的，所以按照同一套配置流程就能完成对大部分需求的开发
+
 
 
 ## 配置STM32

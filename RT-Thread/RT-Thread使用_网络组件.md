@@ -2,7 +2,7 @@
 
 下面是RTT的网络结构框架，供参考
 
-  ![网络框架图](https://www.rt-thread.org/document/site/programming-manual/sal/figures/network_frame.jpg)
+![img](RT-Thread使用_网络组件.assets/network_frame-16434948156661.jpg)
 
 # 网卡netdev
 
@@ -59,7 +59,7 @@ RTT中每个用于网络连接的设备都可以注册成网卡，RTT提供了ne
 
 下面是RTT的网络结构框架（梅开二度）
 
-  ![网络框架图](https://www.rt-thread.org/document/site/programming-manual/sal/figures/network_frame.jpg)
+  ![img](RT-Thread使用_网络组件.assets/network_frame-16434948217103.jpg)
 
 RTT使用网卡结构体对象来管理网卡，如下所示
 

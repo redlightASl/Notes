@@ -468,6 +468,8 @@ static const struct pin_index pins[] =
 
 也就是说GPIOE1对应的RTT引脚编号为142
 
+实际使用中，如果在RTT Studio或ENV工具中设置好了对应的芯片型号，RTT会自动根据GPIO生成`GET_PIN()`，只要调用这个宏就可以直接得到引脚了
+
 ## 引脚设置
 
 1. 引脚模式设置

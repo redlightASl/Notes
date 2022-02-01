@@ -1,3 +1,5 @@
+# ***【已弃坑】***
+
 # 使用CubeMX在STM32上移植FreeRTOS
 
 基本方法非常简单，只要在界面中的【Middeware】中选中FreeRTOS，选择一个合适的版本即可将FreeRTOS移植到STM32。

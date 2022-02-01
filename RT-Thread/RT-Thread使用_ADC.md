@@ -4,7 +4,7 @@
 
 ADC即模数转换器，是指将连续变化的模拟信号转换为离散的数字信号的器件。与之相对应的DAC是ADC的逆向过程。ADC 最早用于对无线信号向数字信号转换，如电视信号，长短播电台发接收等，现在已经用于生活中的方方面面，在仪表中尤为常见。
 
-如下图所示模数转换一般要经过**采样**、**保持**和**量化**、**编码**这几个步骤。在实际电路中，采样和保持，量化和编码在转换过程中是同时实现的。
+如下所示模数转换一般要经过**采样**、**保持**和**量化**、**编码**这几个步骤。在实际电路中，采样和保持，量化和编码在转换过程中是同时实现的。
 
 * **采样**：将时间上连续变化的模拟信号转换为时间上离散的模拟信号
 * **保持**：将采样取得的模拟信号保持一段时间，提供给后续的量化编码一个稳定值
@@ -141,12 +141,11 @@ rt_err_t rt_dac_disable(rt_dac_device_t dev, rt_uint32_t channel);/* 关闭DAC�
    ```c
    /*
     * 程序清单： DAC 设备使用例程
- * 例程导出了 dac_sample 命令到控制终端
+    * 例程导出了 dac_sample 命令到控制终端
     * 命令调用格式：dac_sample
     * 程序功能：通过 DAC 设备将数字值转换为模拟量，并输出电压值。
-    *           示例代码参考电压为3.3V,转换位数为12位。
-   */
-   
+    * 示例代码参考电压为3.3V,转换位数为12位。
+    */
    #include <rtthread.h>
    #include <rtdevice.h>
    
@@ -154,42 +153,37 @@ rt_err_t rt_dac_disable(rt_dac_device_t dev, rt_uint32_t channel);/* 关闭DAC�
    #define DAC_DEV_CHANNEL     1       /* DAC 通道 */
    #define REFER_VOLTAGE       330         /* 参考电压 3.3V,数据精度乘以100保留2位小数*/
    #define CONVERT_BITS        (1 << 12)   /* 转换位数为12位 */
-   
+       
    static int dac_vol_sample(int argc, char *argv[])
    {
-       rt_dac_device_t dac_dev;
-       rt_uint32_t value, vol;
-       rt_err_t ret = RT_EOK;
-   
-       /* 查找设备 */
-       dac_dev = (rt_dac_device_t)rt_device_find(DAC_DEV_NAME);
+   	rt_dac_device_t dac_dev;
+   	rt_uint32_t value, vol;
+   	rt_err_t ret = RT_EOK;
+   	/* 查找设备 */
+   	dac_dev = (rt_dac_device_t)rt_device_find(DAC_DEV_NAME);
        if (dac_dev == RT_NULL)
        {
-           rt_kprintf("dac sample run failed! can't find %s device!\n", DAC_DEV_NAME);
-           return RT_ERROR;
-       }
-   
-       /* 使能设备 */
-       ret = rt_dac_enable(dac_dev, DAC_DEV_NAME);
-   
+       	rt_kprintf("dac sample run failed! can't find %s device!\n", DAC_DEV_NAME);
+   		return RT_ERROR;
+   	}
+   	ret = rt_dac_enable(dac_dev, DAC_DEV_NAME); /* 使能设备 */
+          
        /* 设置输出值 */
        value = atoi(argv[1]);
        rt_dac_write(dac_dev, DAC_DEV_NAME, DAC_DEV_CHANNEL, &value);
        rt_kprintf("the value is :%d \n", value);
-   
-       /* 转换为对应电压值 */
+   	/* 转换为对应电压值 */
        vol = value * REFER_VOLTAGE / CONVERT_BITS;
        rt_kprintf("the voltage is :%d.%02d \n", vol / 100, vol % 100);
-   
-       /* 关闭通道 */
-       ret = rt_dac_disable(dac_dev, DAC_DEV_CHANNEL);
-   
-       return ret;
+   	/* 关闭通道 */
+   	ret = rt_dac_disable(dac_dev, DAC_DEV_CHANNEL);
+   	return ret;
    }
    ```
-   
+
 
 ### ADC与DAC设备使用注意事项
 
 1. ADC和DAC通常都需要一定的转换时间，如果是实时性很高的设备，这些时间往往难以让人接受，所以应该赋予使用ADC的任务较低的优先级，不过实时性需求次要的设备很适合使用RTT的ADC/DAC驱动，RTT内部使用较完善的任务处理体系足以平衡一定的DAC转换时间损耗
 2. 使用相关驱动函数时应当调用<rtdevice.h>
+

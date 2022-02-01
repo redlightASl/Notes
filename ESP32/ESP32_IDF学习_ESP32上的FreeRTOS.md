@@ -1,5 +1,3 @@
-[TOC]
-
 # Bootloader
 
 ESP32的Bootloader（引导加载程序）主要执行以下任务：

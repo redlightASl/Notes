@@ -96,15 +96,40 @@
 
 > 举例来讲，STM32F4里面路径`CMSIS\Device\ST\STM32F4xx`下，可以找到Include和Source两个目录，里面就是CMSIS的头文件和启动代码
 >
+> * core_cm4.h
+>
+>   这个文件是ARM公司编写的，同一个内核可以共享，包括了内核结构体寄存器定义、内核寄存器的内存映射、位定义，所有关于内核的定义都是在这个文件中完成的
+>
+> * misc.h和misc.c
+>
+>   内核应用函数库文件，包含了NVIC、SCB、ITM、MPU、CoreDebug等内核硬件的功能库函数，但是芯片厂商在设计MCU的时候一般会对其进行裁剪，通过更改宏定义来实现需要的功能。其中NVIC则每一个单片机中都会有，因为这是ARM指令集的规定，不过一般都会被裁剪为标准版本的子集；SysTick系统定时器相关的函数也在该文件中定义。这两个文件与上面的core_cm4.h在Cortex-M4内核的MCU中都是可以移植的
+>
 > * stm32f4xx.h和stm32f407xx.h（这是具体的芯片型号）
 >
 >   stm32f407xx.h根据不同的芯片定义了其中所有外设的寄存器地址和封装好的内存操作，使用哪个型号的stm32就要包含对应的头文件，之后stm32f4xx.h会根据芯片型号*宏*选择对应的头文件
->   
+>
 > * system_stm32f4xx.c
 >
 >   启动文件，在这里进行堆栈初始化、定义中断向量表、定义并export中断服务函数名等。在执行完主要部分后会直接调用SystemInit函数进行系统初始化，并引导进入main函数
 >
->   SystemInit函数对系统时钟进行初始化并设置中断向量表偏移量
+>   SystemInit函数对系统时钟进行初始化并设置中断向量表偏移量，最后会把SP指向main函数，常见的汇编实现如下
+>   
+>   ```assembly
+>   ;Reset handler
+>   ;这里是系统复位服务函数，任何复位信号都会触发该中断并强制执行它调用的函数
+>   Reset_Handler PROC
+>   EXPORT Reset_Handler [WEAK]
+>   ;这里把SystemInit挂到了复位函数里面
+>   IMPORT __main
+>   ;IMPORT SystemInit
+>   ;LDR R0, =SystemInit
+>   BLX R0
+>   LDR R0, =__main
+>   BX R0
+>   ENDP
+>   ```
+>   
+>   而在system_stm32f4xx.c中的SystemInit函数比它更复杂一些，除了会把SP移到main函数入口，还会进行各种系统初始化
 >
 > 于是在移植过程中主要添加Include目录的包含，添加system_stm32f4xx.c、startup_stm32f407xx.c到工程目录，并修改全局宏`STM32F407xx`即可完成对芯片底层和启动流程的配置，无需再手动编写bootloader甚至根据datasheet配置寄存器偏移量
 

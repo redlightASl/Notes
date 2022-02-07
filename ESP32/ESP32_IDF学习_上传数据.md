@@ -209,6 +209,22 @@ ESP32的WiFi实现部分没有开源，所以在这里仅使用官方例程说�
 
 ## ESP32的lwIP库
 
+lwIP是瑞典计算机科学院(SICS)的Adam Dunkels等开发的一个小型开源的TCP/IP协议栈，是TCP/IP的面向嵌入式平台的实现，有无操作系统的支持都可以运行。lwIP在保持TCP协议主要功能的基础上减少对RAM的占用，它只需十几KB的RAM和40KB左右的ROM就可以运
+行，详情可查看[官网](http://savannah.nongnu.org/projects/lwip/)
+
+lwIP实现了如下协议：
+
+* IGMP：用于网络组管理，可实现多播数据的接收
+* TCP/IP：包括IPv4和IPv6，支持IP分片与重装，包括通过多个网络接口的数据包转发，支持TCP拥塞控制、往返时间估计、快速恢复和重传，底层的ARP、DMS、DHCP也都得到了支持
+* 用户数据报协议UDP
+* ICMP：用于网络维护和调试的Internet控制消息协议
+* 简单网络管理协议SNMP
+* PPP：点对点协议，支持PPPoE
+* AUTOIP：IP自动配置
+
+
+
+
 ### 常用API
 
 

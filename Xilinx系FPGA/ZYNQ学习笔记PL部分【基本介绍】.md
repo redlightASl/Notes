@@ -8,3 +8,20 @@ Zynq的PL即Programmable Logic部分，实质上是一个和PS端紧耦合的Art
 
 Xilinx还想办法搞了个PYNQ，能够直接把PL当工具核用Python+opncv写自带硬件加速的图像处理应用
 
+## 硬件资源
+
+
+
+
+
+
+
+## 开发流程
+
+
+
+
+
+
+
+## 与PS交互

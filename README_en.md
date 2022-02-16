@@ -1,6 +1,6 @@
 # Personal Notes Repository
 
-[中文](README.md) | **英语** |
+[中文](README.md) | **English** |
 
 [![](https://img.shields.io/badge/license-GPL--3.0-blue)](https://github.com/redlightASl/Notes/blob/master/LICENSE)
 

@@ -1,6 +1,6 @@
 # 个人学习笔记库
 
-**中文** | [英语](README_en.md) |
+**中文** | [English](README_en.md) |
 
 [![](https://img.shields.io/badge/license-GPL--3.0-blue)](https://github.com/redlightASl/Notes/blob/master/LICENSE)
 

@@ -1,14 +1,20 @@
 # 个人学习笔记库
 
+**中文** | [英语](README_en.md) |
+
+[![](https://img.shields.io/badge/license-GPL--3.0-blue)](https://github.com/redlightASl/Notes/blob/master/LICENSE)
+
+[![](https://img.shields.io/badge/license-CC--BY--SA-red)]()
+
 到目前为止自己所写的博文与学习笔记都会保存在这里
 
-【包括未完成的笔记和大量弃坑项目的存档】
+【*包括未完成的笔记和大量弃坑项目的存档*】
 
 以后所有笔记都会在该项目下记录以**防止丢失**
 
 不定期更新
 
-笔记使用**Typora**与**VSCode**混合编辑，推荐使用支持*Markdown*与*LaTex*的编辑器/查看器
+笔记使用**Typora**与**VSCode**混合编辑，请使用支持*Markdown*与*LaTex*的查看器
 
 部分思维导图使用*XMind*制作，可自行查看
 
@@ -18,21 +24,13 @@
 
 现在大部分博文已经迁移到基于Github Pages的自建站上，欢迎来看看[红光今天吃什么](https://redlightasl.github.io/)
 
-推荐使用[Typora](https://www.typora.io/)或VSCode（配合MarkDown插件）查看笔记
+推荐使用[Typora](https://www.typora.io/)或VSCode（配合MarkDown插件）查看笔记以获得更好的阅读体验
 
 推荐Typora主题：[针对Markdown的类LaTex排版](https://github.com/yfzhao20/Typora-markdown)
 
-# Personal Notes Repository
+### 协议相关
 
-All my notes will be upload to this remote repository,including a lot of "cookie" and archives of abandoned projects
+本项目中所有代码文档采用**GPL-3.0**发布，仅用于学习用途，不适宜商用
 
-Update irregularly!
-
-And welcome to visit my blogs in [Redlight's home](https://redlightasl.github.io/)
-
-All of my notes in this repository were edited by **Typora** and **VSCode**,It was recommended to check them using a editor which supports *Markdown* and *LaTex*
-
-It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/) or **VSCode**.Besides,here's an interesting [theme](https://github.com/yfzhao20/Typora-markdown) for Typora,enjoy it!
-
-Mindmaps were edited by **XMind**,you can download it from net and check out these notes.
+本项目中所有文本采用**CC-BY-SA**发布
 

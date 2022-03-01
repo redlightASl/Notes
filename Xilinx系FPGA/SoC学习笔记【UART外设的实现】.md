@@ -1,4 +1,4 @@
-# UART实现
+# UART控制器的FPGA实现
 
 UART实际上就是一个每次时钟跳变沿都输出当前TX-FIFO内一位数据的多计数器设备
 
@@ -12,11 +12,10 @@ UART实际上就是一个每次时钟跳变沿都输出当前TX-FIFO内一位数
 //系统时钟200MHz
 //波特率115200
 //附带忙闲指示信号rdy
-module uart_tx 
-    #(
+module uart_tx #(
     parameter BAUDRATE = 115200,
     parameter FREQ = 200_000_000
-    )
+)
 (
     
     input 			clk, 
@@ -102,11 +101,10 @@ endmodule
 `timescale 1ns/1ps
 
 //系统时钟200MHz，波特率115200
-module uart_rx  
-    #(
+module uart_rx #(
     parameter BAUDRATE = 115200,
     parameter FREQ = 200_000_000
-    )
+)
 (
     input 					clk,
     input					_rst,

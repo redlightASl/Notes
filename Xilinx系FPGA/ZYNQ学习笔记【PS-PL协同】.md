@@ -85,11 +85,5 @@ PS端GPIO外设的GPIO有四个bank，其中bank0、bank1连接到MIO，bank2、
 
 
 
-# AXI总线
-
-
-
-
-
 
 

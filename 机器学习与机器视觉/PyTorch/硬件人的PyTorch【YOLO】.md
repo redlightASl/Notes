@@ -313,25 +313,57 @@ YOLOv3的一个改进点就是**将原来的单标签分类改进为多标签分
 
 ### Darknet的YOLO实现
 
+darknet是官方的YOLO实现，使用基于C/C++的Darknet编写
 
+> 相比于TensorFlow来说，Darknet并没有那么强大，但是它完全由C实现且没有任何依赖，同时支持CPU和GPU运算
 
+源码通过`https://github.com/pjreddie/darknet`获取
 
+git clone以后只需要使用
 
+```shell
+cd darknet
+make
+```
 
+就可以完成编译了
 
+随后下载预训练的权重文件并将它放在darknet目录下就可以使用检测功能
 
+```shell
+wget https://pjreddie.com/media/files/yolov3.weights
+./darknet detect cfg/yolov3.cfg yolov3.weights data/dog.jpg
+```
 
-
-
-
+darknet的yolo使用VOC格式数据集进行训练
 
 ## ultralytics的YOLOv5实现
 
+ultralytics的实现是很经典的工业场景实现，可以有效地部署在手机平台或边缘设备上。
+
+yolov4是yolov3基础上的大规模改进；yolov5则没有对大框架进行改动，只是调整了网络结构来提高速度和准确度
+
+### YOLOv4结构
+
+
+
+Yolov4在Yolov3的基础上进行了很多的创新。
+**输入端**采用mosaic数据增强
+**Backbone上**采用了CSPDarknet53、Mish激活函数、Dropblock等方式
+**Neck中**采用了SPP、FPN+PAN的结构
+**输出端**则采用CIOU_Loss、DIOU_nms操作
 
 
 
 
 
+
+
+### YOLOv5结构
+
+Yolov5官方代码中，给出的目标检测网络中一共有4个版本，分别是**Yolov5s、Yolov5m、Yolov5l、Yolov5x**四个模型
+
+下面以最基础的YOLOv5s来介绍，这是yolov5中**最小**的网络。后面的3种都是在此基础上不断加深网络层数，不断加宽特征图宽度
 
 
 

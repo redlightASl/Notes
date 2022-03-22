@@ -296,7 +296,8 @@ PyTorch内部支持了大量损失函数，可以查阅官方文档或本教程�
         swap=False, 
         size_average=None, 
         reduce=None, 
-        reduction='mean')
+        reduction='mean'
+    )
     ```
 
 * HingEmbeddingLoss

@@ -460,49 +460,173 @@ YOLOv4中引入的PAN结构借鉴了PANet的思路（如上图），与FPN交叉
 
 ### YOLOv5结构改进
 
-Yolov5官方代码中，给出的目标检测网络中一共有4个版本，分别是**Yolov5s、Yolov5m、Yolov5l、Yolov5x**四个模型
+Yolov5官方代码中，给出的目标检测网络中一共有4个版本，分别是**Yolov5s、Yolov5m、Yolov5l、Yolov5x**四个模型。YOLOv5与v4地区别并不太大，但是相当有效地**加快了推理速度**，这让YOLOv5跑在更多嵌入式平台上。
 
-下面以最基础的YOLOv5s来介绍，这是yolov5中**最小**的网络。后面的3种都是在此基础上不断加深网络层数，不断加宽特征图宽度
+> 下面的几乎所有改进都是为了一个目的：加快运行速度、减小网络体积
 
+下面以最基础的**YOLOv5s**来介绍，这是yolov5中**最小**的网络。后面的3种都是在此基础上不断加深网络层数，不断加宽特征图宽度
 
+YOLOv5在v4基础上做了如下改进：
 
+* 输入端：**自适应锚框计算**、**自适应图片缩放**
+* Backbone：**Focus结构**、**双CSP结构**
+* Neck：**CSP2版本的FPN+PAN结构**
+* Prediction与输出端：没有其他重要改进
 
+下面来依次介绍
 
+### 自适应锚框计算
 
+YOLOv5的输入部分除了沿袭v4的Mosaic数据增强外，还引入了自适应锚框计算和图片缩放功能
 
+在YOLO系列中，针对不同的数据集总会设置初始长宽的**锚框**（Anchor），网络训练中会在初始锚框基础上输出预测框并和真实框比对，再反向传播迭代网络参数，因此初始锚框总是YOLOv4以前网络很重要的一部分，YOLOv5也不例外。不过v5中将初始锚框计算功能嵌入到代码中，从而在每次训练时都能自适应计算不同训练集里面最佳的锚框值。
 
+### 自适应图片缩放
 
-### 配环境和模型训练
+常用的目标检测算法中，不同的图片长宽都不相同，因此常用的方式是将原始图片统一缩放到一个标准尺寸，再送入检测网络中。YOLOv3使用416x416、v4使用608x608像素。为了让图片缩放长宽比保持恒定，就需要在图像边缘填充黑边，这让信息冗余从而影响推理速度。而YOLOv5代码中datasets.py的letterbox函数可以对原始图像**自适应地添加最少黑边**，这样就减少了计算量，让目标检测速度大大提高。
+
+> 理论上通过这种简单的改进，推理速度可以得到37%的提升
+>
+> 需要注意：**只有在使用模型推理时才会采用缩减黑边的方式，从而提高目标检测和推理的速度**
+
+基本算法如下：
+
+1. 分别按照长和宽计算缩放系数
+2. 选出更小的那个缩放系数
+3. 计算缩放后的尺寸并执行缩放
+4. 计算需要填充的黑边
+5. 将黑边区域使用`(114, 114, 114)`色彩填充（一种接近灰色的黑色）
+
+### Focus结构
+
+这是YOLOv5中独有的结构，这个模块准确地说并不属于Backbone，而是它的一个前置操作，目的是在图片进入Backbone前，对图片进行切片操作
+
+具体来说就是**在一张图片中每隔一个像素拿到一个值**（类似临近下采样），从而获得四种互补的图片，它们互补且没有信息丢失，从而让W、H信息集中到了通道空间，扩充输入通道为原来的4倍。最后将得到的新图片再次卷积就能获得**没有信息丢失情况下的二倍下采样特征图**了。
+
+经过这样的改进后，**参数量变少了，也就达到了提速的效果**；同时下采样时没有信息的丢失，让后面的卷积效果增强
+
+### 双CSP结构
+
+Yolov4中只有主干网络使用了CSP结构；Yolov5中则设计了两种CSP：**CSP1_X**和**CSP2_X**结构，分别应用在Backbone和Neck网络中
+
+CSP1_X的结构和原来的ResNetx结构类似；CSP2_X结构则是将CSP1_X里面的x个ResUnit换成了2x个CBL，如下图所示
+
+![image-20220322192651391](硬件人的PyTorch【YOLO】.assets/image-20220322192651391.png)
+
+CSP1计算量更大且有残差结构；CSP2稍小，更易于计算
+
+CSP2应用到Neck部分以后，显著增强了网络特征融合的能力
+
+在各个不同版本的YOLO中，最大的不同就是CSP的深度，如下图所示
+
+![image-20220322194013461](硬件人的PyTorch【YOLO】.assets/image-20220322194013461.png)
+
+从YOLOv5s到x，各层CSP的深度递增
+
+### 配环境
 
 本篇重点在于把YOLO的原理，因此仅对环境配置简述
 
 > 需要声明：在算力受限的硬件设备上部署YOLOv5是很nt的，如果想要在MCU上部署算法请选择YOLOv3及以下，或者使用专用算法抑或是YOLOX-tiny这样的魔改版YOLO算法
 >
-> 下面的配置步骤适用于ultralytics的其他YOLO实现部署在PC端
+> 下面的配置步骤适用于**ultralytics**的其他YOLO实现部署在PC端
 
-1. 
+1. 安装anaconda和python环境
 
+2. 安装Cuda和Cudnn环境
 
+	自行查阅其他教程，不再赘述。可以在Win或Linux下完成（视物理机情况而定）
 
+	要求**PyTorch>=1.7**
 
+	**PyTorch的依赖关系需要查看官网，和Cuda、Cudnn对应，千万不要装错**
 
+3. 下载源码文件并配置环境
 
+	```shell
+	git clone https://github.com/ultralytics/yolov5  # clone
+	cd yolov5
+	pip install -r requirements.txt  # install
+	```
 
+	其中可以考虑使用`pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple`来加速下载
 
+	这一步一定要注意
 
+	**Python>=3.7.0**
 
+4. 下载权重文件
 
+	从README.md文档里面最后[Pretrained Checkpoints](https://github.com/ultralytics/yolov5/releases)里面找到需要模型的权重文件，并将其下载到一个目录，在后面要用到
 
+5. 测试
 
+	```shell
+	python detect.py --source 0 --weights="<权重文件路径>" #使用摄像头检测
+	python detect.py --source=“data/images/zidane.jpg” --weights="<权重文件路径>" #使用默认图片测试
+	```
 
+按照上面这几步就可以完成YOLO的测试了
 
+如果需要在自己的项目里集成YOLO，可以参考README文件里面的代码
 
+```python
+import torch
 
+# Model
+model = torch.hub.load('ultralytics/yolov5', 'yolov5s')  # or yolov5m, yolov5l, yolov5x, custom
 
+# Images
+img = 'https://ultralytics.com/images/zidane.jpg'  # or file, Path, PIL, OpenCV, numpy, list
 
+# Inference
+results = model(img)
 
+# Results
+results.print()  # or .show(), .save(), .crop(), .pandas(), etc.
+```
 
+### 训练自己的模型
 
+**YOLOv5使用YOLO格式的数据集，标注的时候需要注意**
+
+有两种保存数据集的方法
+
+第一种是直接按照官方格式要求制作
+
+需要四个基本目录：
+
+* train_img：训练集图片目录
+* train_ann：训练集标注目录
+* val_img：测试集图片目录
+* val_ann：测试集标注目录
+
+图片目录放在一个images目录下；标注目录放在一个labels目录下；这两个目录还要同时放进一个总的根目录下
+
+整体结构如下所示（下面的命名和上面所示不相同，实际上目录命名是比较随意的）
+
+![image-20220322200242502](硬件人的PyTorch【YOLO】.assets/image-20220322200242502.png)
+
+然后需要制作对应的dataset.yaml
+
+```yaml
+train: <训练集图片的路径>
+val: <测试集图片的路径>
+
+nc: <种类数>
+
+names: ['<种类的名字1>', '<种类的名字2>']
+```
+
+一个根目录和对应的yaml文件要一起放在yolov5/data目录下以便使用（也可以放在其他位置，只要训练的时候用参数指定出来就行）
+
+这样数据集就制作完毕了，可以用下面的命令开始训练
+
+```shell
+python train.py --img 640 --data data/<数据集的yaml文件> --cfg models/<模型的yaml文件> --weights weights/<模型的对应与训练权重文件> --batch-size <每批训练的数量> --epochs <迭代次数，一般50或以下即可>
+```
+
+训练完成后就可以按照上面的步骤进行测试了
 
 # 参考教程
 

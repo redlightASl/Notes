@@ -95,8 +95,8 @@ u16 ADC_get_value(u8 ch)
 	ADC_SoftwareStartConv(ADC1);
 	
 	//8. 等待转换结束后返回结果
-	while(!ADC_GetFlagStatus(ADC1,ADC_FLAG_EOC))
-		return ADC_GetConversionValue(ADC1);//返回最近一次ADC1规则组的转换结果
+	while(!ADC_GetFlagStatus(ADC1,ADC_FLAG_EOC));
+	return ADC_GetConversionValue(ADC1);//返回最近一次ADC1规则组的转换结果
 }
 
 
@@ -327,5 +327,4 @@ int main(void)
     }
 }
 ```
-
 

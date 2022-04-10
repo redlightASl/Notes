@@ -11,3 +11,9 @@
 * 和C语言编程有关的工具
 
 以上
+
+----
+
+# 新增内容
+
+发现了https://docs.huihoo.com/c/linux-c-programming/这个网站，于是决定写一部分和Linux相结合的内容

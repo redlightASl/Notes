@@ -415,21 +415,13 @@ endmodule
 
 ## 片上总线
 
+STM32片上总线主要是AHB和APB总线，原理可以参考[AMBA总线教程](https://redlightasl.github.io/2022/02/06/FPGA%E5%AD%A6%E4%B9%A0%E7%AC%94%E8%AE%B04%E3%80%90AMBA%E6%80%BB%E7%BA%BF%E3%80%91/)
 
+这里简单介绍AHB总线矩阵的实现
 
+github上的一个实现如下：
 
+https://github.com/RoaLogic/ahb3lite_interconnect
 
-
-
-
-
-
-
-
-
-
-
-
-
-
+使用sv编写，包含了主机、从机接口与对应的内部互联架构，代码较多就不列出了，每个接口内部都使用了一个状态机实现AHB协议逻辑。使用中需要注意：总线矩阵的主从机接口应该与设备的主从机接口互补，也就是主机的master连到interconnect的slave，interconnect的master连到从机的slave
 

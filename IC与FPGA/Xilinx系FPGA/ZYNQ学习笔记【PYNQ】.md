@@ -50,7 +50,7 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
 
   其实只要有ZYNQ SoC的最小系统就可以使用PYNQ了，只不过没有以太网会很不方便
 
-* ZYNQ附属的最小系统，包括用于PL端的DDR3、DDR4等和用于加载PL端比特流的SPI FLASH
+* ZYNQ附属的最小系统，包括用于PL端的DDR3、DDR4等和用于主动加载PL端比特流的SPI FLASH
 
   其中DDR大小至少要有512MB
 
@@ -85,9 +85,7 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
    > 
    > 推荐使用虚拟机运行脚本，这些镜像构建需要root权限。流程已经在Ubuntu 16.04和Ubuntu 18.04中得到了测试，为保险起见应使用Ubuntu执行脚本，其他发行版可能会存在依赖问题。此外构建步骤需要4核处理器（再怎么说也得来个能用的赛扬）并且至少需要50G的硬盘空间
    
-   这步其实不是必须的，
-   
-   * 
+   这步其实不是必须的，用户可以自行构建一个基于ubuntu20的项目，但需要更改很多环境配置，因此不推荐使用除了ubuntu 16和18以外的任何版本构建pynq
    
 2. 为了完成README文档所说的注意事项，我们需要先准备一个编译环境
 
@@ -117,14 +115,14 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
 4. 最折磨人的配环境！编译一套PYNQ你需要如下软件环境：
 
    * PetaLinux：用于在Xilinx家SoC上定制编译嵌入式Linux的SDK
-   * Vivado：Xilinx的王牌软件，懂得都懂，不懂就去百度
+   * Vivado：Xilinx的亡牌软件，懂得都懂，不懂就去百度
    * Vitis：Xilinx专门用于SoC软件开发的一套东西，写ZYNQ软件的时候要和它打交道
 
    每一个软件都是吃硬盘大户（悲）
 
    所有安装教程都能在Xilinx官方文档或者百度/google/bing上找到教程
 
-   如果是老ZYNQ用户（指配环境大师），应该都已经有这些软件了
+   如果是老ZYNQ开发者（指配环境大师），应该都已经有这些软件了
 
    完事以后还要把PetaLinux和Vitis的相关设置导出，官方给出了以下示例
 
@@ -147,11 +145,7 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
 
    需要注意一点：这套操作包括了综合IP核、实现PS-PL协同与AMBA总线、实现片上硬件系统、导出比特流、编译整个嵌入式Linux内核、编译生成一堆软件和依赖......所以“**这个操作可能会花费数个小时**”
 
-
-
-
-
-### 编译镜像
+### 自定制镜像
 
 
 
@@ -234,15 +228,60 @@ SD卡需要事先格式化好
 
 ### 安装SD卡、配置网络、连接上位机
 
+这一步就不多说了，主要讲一下不使用pynq自带的python脚本如何配置网络
 
+上电以后用串口连接，登录账号和密码都是`xilinx`
 
+如果使用了有线网络，一般直接就能上网，最多需要自己配置ip，使用下面的指令
 
+```shell
+ifconfig eth0 192.168.1.2
+```
 
+这里eth0的位置是插上网线后的网口名，一般是eth0或eth1，后面的192.168.1.2可以换成任意在内网同一网段的ip地址
 
+如果不用有线网，那你需要一个usb无线网卡，将它连到板子引出的usb口；或者用一个无线模块，通过其他引脚接入，不过这样就还需要在linux内核里面加入对应的驱动，还要在之前的定制过程中加入特定的设备树文件。
+
+总之，我们现在弄到了一个能连wifi的东西，使用`ifconfig`可以发现对应的wlan0（或其他称呼）没有ip地址，甚至wlan0根本不存在，这样就需要用下面的指令打开wlan设备
+
+```shell
+sudo -S wpa_supplicant -D nl80211 -i wlan0 -c /etc/wpa_supplicant.conf -B
+```
+
+这里用到了`wpa_supplicant`工具，pynq会自带这个软件包。如果实在没有，可以使用`iwconfig`工具
+
+这里的意思是使用nl80211驱动，根据/etc/wpa_supplicant.conf的配置来初始化wlan0接口，完成这一步以后网卡就会启动，如果有指示灯，这时候网卡的指示灯应该就会闪烁
+
+完成以后就可以使用
+
+```shell
+sudo wpa_cli -i wlan0 scan
+```
+
+扫描附近的wifi了
+
+如果扫描到在/etc/wpa_supplicant.conf配置过的wifi，那么会自动连接
+
+之后使用
+
+```shell
+do dhclient wlan0
+```
+
+就能完成dhcp，自动获取ip地址，也就能够上网啦
+
+> 补充一下wpa_supplicant.conf的设置
+>
+> ctrl_interface=/var/run/wpa_supplicant
+> update_config=1
+> network={ 
+> 		ssid="要连接的wifi名"
+>            psk="要连接的wifi密码"
+> } 
+
+对于连接上位机，更简单，直接ssh就可以了，如果不嫌弃还能直接走telnet，也能直接用vscode访问上面的文件系统——pynq默认带了ssh、scp。除此之外，在上位机打开浏览器，输入`http://pynq:9090`，就可以打开jupyter notebook的登陆页面，可以用jupyter notebook控制整个pynq
 
 ### 使用PYNQ
-
-
 
 
 

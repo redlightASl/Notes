@@ -16,6 +16,8 @@
 
 ```shell
 git clone git@github.com:VatinaCharo/NJUSolidStatePhysics.git
+git clone git@github.com:LiuRuiQi/Review-of-Solid-State-Physics.git
+
 ```
 
 大连理工大学《半导体物理讲义》

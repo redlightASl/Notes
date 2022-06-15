@@ -20,6 +20,9 @@
 git clone git@github.com:VatinaCharo/NJUSolidStatePhysics.git
 git clone git@github.com:LiuRuiQi/Review-of-Solid-State-Physics.git
 
+
+https://zhuanlan.zhihu.com/p/266185438
+https://zhuanlan.zhihu.com/p/436659016
 ```
 
 大连理工大学《半导体物理讲义》

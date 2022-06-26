@@ -1,5 +1,7 @@
 # 基于Tcl脚本使用Vivado
 
+本博文参考高亚军《Vivado/Tcl零基础入门与案例实战》和Xilinx官方文档*ug894*编写，如有错误，**请以官方文档为准**
+
 ## 使用Tcl选取Vivado的RTL对象
 
 ![image-20220524225734240](基于Tcl脚本使用Vivado.assets/image-20220524225734240.png)

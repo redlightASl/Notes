@@ -680,3 +680,15 @@ write_checkpoint -force $outputDir/checkpoint.dcp #保存检查点
 phys_opt_design #布局布线优化
 write_verilog -force $outputDir/netlist.v -mode timesim -sdf_anno true #导出Verilog网表
 ```
+
+### 调试器连接与烧录
+
+```tcl
+open_hw #打开硬件设备
+connect_hw_server #连接到调试服务器
+current_hw_target #显示当前连接的硬件目标
+open_hw_target #打开硬件目标
+set_property PROGRAM.FILE <比特流文件路径> [lindex[get_hw_devices]] #分配烧录文件
+program_hw_devices [lindex[get_hw_devices]] #烧录比特流
+```
+

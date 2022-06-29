@@ -341,47 +341,156 @@ void cv::equalizeHist(cv::InputArray src, //输入图像
 
 ### 模板匹配
 
+**模板匹配**：在一幅大图像中搜寻查找模板图像位置的图像处理算法，属于基本且相对常用的模式识别方法
 
+模板匹配的实现思路非常简单：在输入图像上滑动要检测特征的图像块，利用匹配算法计算匹配度，从而筛选出最相近的图像特征。模板匹配算法中并没有直接使用到直方图，但某些用于计算匹配度的算法会采用直方图的统计形式进行运算
 
+模板匹配具有自身的局限性：特征图像只能进行平行移动，**若原图像中的匹配目标发生旋转或大小变化，该算法效果会非常差，接近无效**
 
+常见的印刷体数字识别可以使用模板匹配算法实现，在光照均一的环境下效果很好且运算速度较快。
 
+OpenCV提供了`matchTemplate()`函数用来进行模板匹配，函数原型如下：
 
+```c++
+void cv::matchTemplate(cv::InputArray image, //待搜索图像，应该是8位或32位浮点型图像
+                       cv::InputArray templ, //搜索模板，要求与源图像数据类型相同
+                       cv::OutputArray result, //匹配结果映射图像
+                       int method, //匹配方法
+                       cv::InputArray mask = noArray() //图像掩膜
+                      )
+```
 
+该函数会输出一个匹配结果映射图像，如果源图像尺寸为`W*H`，搜索模板图像尺寸为`w*h`，那么得到结果图像大小就是`(W-w+1)*(H-h+1)`。这个图像长宽计算公式很像图像卷积公式：
+$$
+N=\frac{W-F+2P}{S}+1
+$$
+其中W是输入图片的长或宽，F为卷积核的长或宽，P为Padding的像素数，S为步长
 
+可以发现，令$W=W=H,F=w=h,S=1,P=0$时，会有结果图片宽
+$$
+N_W=W-w+1
+$$
+图片高
+$$
+N_H=H-h+1
+$$
+相乘就得到图片大小
+$$
+N_W \times N_H = (W-w+1)(H-h+1)
+$$
+就是上面的公式。
 
+所以说*模板匹配算法可以理解成执行了一遍Padding为0，步长为1，以特征图片为卷积核的卷积运算，卷积的权重则由使用到的匹配算法决定*
 
+OpenCV提供了六种匹配算法：
 
+* 平方差匹配`TM_SQDIFF`
+    $$
+    R(x,y)=\sum_{x',y'} (T(x',y')-I(x+x',y+y'))^2
+    $$
+    基于两图像对应像素平方差得到匹配度，值越小越好，理想最优为0
 
+* 归一化平方差匹配`TM_SQDIFF_NORMED`
+    $$
+    R(x,y)=\frac{\sum_{x',y'} (T(x',y')-I(x+x',y+y'))^2}{\sqrt{\sum_{x',y'} T(x',y')^2 \cdot \sum_{x',y'} I(x+x',y+y')^2}}
+    $$
+    基于归一化的平方差，和上面的普通平方差类似
 
+* 相关匹配法`TM_CCORR`
+    $$
+    R(x,y)=\sum_{x',y'} (T(x',y')I(x+x',y+y'))
+    $$
+    将模板和图像对应像素相乘，数越大匹配程度越高，最差结果为0
 
+* 归一化相关匹配法`TM_CCORR_NORMED`
+    $$
+    R(x,y)=\frac{\sum_{x',y'} (T(x',y')I(x+x',y+y'))}{\sqrt{\sum_{x',y'} T(x',y')^2 \cdot \sum_{x',y'} I(x+x',y+y')^2}}
+    $$
+    上面算法归一化后的计算
 
+* 系数匹配法`TM_CCOEFF`
+    $$
+    R(x,y)=\sum_{x',y'} (T'(x',y')I'(x+x',y+y'))
+    $$
+    其中的T'值
+    $$
+    T'(x',y')=T(x',y') - \frac{1}{w \cdot h} \sum_{x'',y''}T(x'',y'')
+    $$
+    其中的I'值
+    $$
+    I'(x+x',y+y')=I(x+x',y+y') - \frac{1}{w \cdot h} \sum_{x'',y''}I(x+x'',y+y'')
+    $$
+    将模板关于其均值的相对值与图像关于其均值的相对值进行匹配，值从-1到1之间变化，1表示最好匹配，-1表示最差匹配，0则表示二者没有任何相关性
 
+* 归一化相关系数匹配法`TM_CCOEFF_NORMED`
+    $$
+    R(x,y)=\frac{\sum_{x',y'} (T'(x',y')I'(x+x',y+y'))}{\sqrt{\sum_{x',y'} T'(x',y')^2 \cdot \sum_{x',y'} I'(x+x',y+y')^2}}
+    $$
+    上面算法的归一化版本，在分母上加了归一化算子
 
+这六个参数在OpenCV2中可以加上`CV_`前缀。从上到下，六个算法的计算量增大，精确度也增大，应用中要根据需要确定
 
-
-
+具体的应用在后面的印刷体数字识别案例中给出
 
 ## 轮廓检测与应用
 
-图像中的一个轮廓就是一系列点的集合，或者说图像中的一条曲线
-
-OpenCV中提供了一些基于梯度的轮廓处理函数
+图像中的一个轮廓就是一系列点的集合，或者说图像中的一条曲线。OpenCV中提供了一些基于梯度和基于分水岭算法的轮廓处理函数
 
 ### 寻找轮廓
 
+以Canny为代表的边缘检测算法可以检测出轮廓像素，但它只是将轮廓上的像素一个一个找出来，并不是将轮廓作为一个整体考虑，在实际问题比如物体检测中，我们常常需要寻找物体的具体轮廓形状，这时候就必须把轮廓作为一整个实体或者说一条封闭/半封闭的曲线考虑。
 
+OpenCV提供以下算法用于在二值图像中寻找轮廓
 
+```c++
+void cv::findContours(cv::InputArray image, //输入图像，要求是8位单通道图像
+                      cv::OutputArrayOfArrays contours, 
+                      //检测到的轮廓结果，每个轮廓存储为一个点向量
+                      cv::OutputArray hierarchy, 
+                      //可选的输出向量，包含图像拓扑信息，作为轮廓数量的表示
+                      int mode, //轮廓检索模式 
+                      int method, //轮廓近似办法
+                      cv::Point offset = cv::Point() 
+                      //每个轮廓点的可选偏移量，用于分析在ROI中找出的轮廓
+                     )
+```
 
+可选以下的轮廓检索模式
 
+* **RETR_EXTERNAL**：只检测最外层轮廓，检测到的所有轮廓设置hierarchy\[i\]\[2\]\=\=hierarchy\[i\]\[3\]\=\=-1
+* **RETR_LIST**：提取所有轮廓，放置在list中，检测到的轮廓不建立等级关系
+* **RETR_CCOMP**：提取所有轮廓，将其组织为双层结构，顶层为连通域的外边界，次层为孔的内边界
+* **RETR_TREE**：提取所有轮廓并建立树状轮廓结构
 
+可选以下的轮廓近似办法
 
+* **CHAIN_APPROX_NONE**：获取每个轮廓上所有像素，相邻两个点的像素位置差不超过1
+* **CHAIN_APPROX_SIMPLE**：压缩水平、垂直、对角线方向的元素，只保留该方向的顶点坐标
+* **CHAIN_APPROX_TC89_L1**：使用Tech-Chinl链逼近算法中的L1算法
+* **CHAIN_APPROX_TC89_KCOS**：使用Tech-Chinl链逼近算法中的KCOS算法
 
+OpenCV还提供了`drawCountours()`函数用于绘制检测出的轮廓，二者配合使用。
+
+```c++
+void cv::drawContours(cv::InputOutputArray image, //输入图像
+                      cv::InputArrayOfArrays contours, //输入轮廓
+                      int contourIdx, //轮廓绘制指示变量
+                      const cv::Scalar &color, //轮廓颜色
+                      int thickness = 1, //轮廓线条粗细
+                      int lineType = 8, //轮廓线条类型，有8连通、4连通和LINE_AA抗锯齿型
+                      cv::InputArray hierarchy = noArray(), //层次结构信息
+                      int maxLevel = 2147483647, //绘制轮廓的最大等级
+                      cv::Point offset = cv::Point() //每个轮廓点的可选偏移量
+                     )
+```
 
 ### 寻找凸包
 
-**凸包**（Convex Hull）：对于给定二维平面上的点集，凸包是将最外层的点连接起来构成的凸多边形。
+**凸包**（Convex Hull）：对于给定二维平面上的点集，凸包是将最外层的点连接起来构成的凸多边形。一个典型的凸包如下所示
 
-利用凸包计算其凸缺陷从而获取物体轮廓是一种经典的算法，OpenCV提供了convexHull()函数来寻找图像点集中的凸包
+![image-20220629180313273](传统CV算法应用.assets/image-20220629180313273.png)
+
+利用凸包计算其凸缺陷从而获取物体轮廓是一种经典的算法，OpenCV提供了`convexHull()`函数来寻找图像点集中的凸包
 
 ```c++
 void cv::convexHull(cv::InputArray points, 
@@ -391,35 +500,88 @@ void cv::convexHull(cv::InputArray points,
                    )
 ```
 
+基于凸包，OpenCV还提供了将检测出的**轮廓用最小包围图形表示**的函数
 
+```c++
+cv::Rect cv::boundingRect(cv::InputArray array); //计算点集最外面（right-up）的边界矩形
+cv::RotatedRect cv::minAreaRect(cv::InputArray points); //寻找最小包围矩形
+void cv::minEnclosingCircle(cv::InputArray points, 
+                            cv::Point2f &center, //圆心
+                            float &radius //半径
+                           ); //寻找最小面积包围圆形
+cv::RotatedRect cv::fitEllipse(cv::InputArray points); //用椭圆拟合二维点集
+void approxPolyDP(cv::InputArray curve, //点集 
+                  cv::OutputArray approxCurve, //输出结果曲线
+                  double epsilon, //逼近精度
+                  bool closed //生成曲线是否封闭
+                 ); //用多边形曲线拟合点集
+```
 
-
-
-
+使用这些函数，我们可以得到检测到图形的近似。**非常不建议直接在原始图像上应用轮廓检测和拟合函数，因为效果极差**（如果不理解可以跑一下浅墨大佬书里的示例程序）
 
 ### 图像轮廓矩
 
+为了更好地处理轮廓，CV中引入**矩函数**，通过矩集来描述图像形状的全局特征，并提供关于该图像不同类型几何特征信息——**一阶矩描述形状**，**二阶矩描述曲线围绕直线平均值的扩展程度**，**三阶矩描述平均值对称性的测量**
 
+由二阶矩和三阶矩可以导出7个**不变矩**，用于处理图像的统计特性，满足平移、伸缩、旋转的不变性
 
+简而言之，应用矩函数就可以求出轮廓的面积或长度的数值解
 
+OpenCV中提供了`moments()`函数用于计算轮廓矩
 
+```c++
+cv::Moments cv::moments(cv::InputArray array, //输入图像
+                        bool binaryImage = false //是否将非零像素置为1
+                       ); //用于求多边形和光栅形状的一阶、二阶、三阶矩
+```
 
+得到轮廓矩，就可以计算轮廓长度和面积了
+
+```c++
+double cv::contourArea(cv::InputArray contour, //输入轮廓
+                       bool oriented = false //是否使用正负号表示轮廓方向
+                      ); //计算轮廓包围的面积
+double cv::arcLength(cv::InputArray curve, //输入轮廓
+                     bool closed //轮廓曲线是否封闭
+                    ); //计算轮廓长度
+```
 
 ### 分水岭算法
 
+分水岭算法是一种基于拓扑理论的图像分割方法。我们将图像看成一个凹凸不平的地貌，每一点的像素的灰度值就表示该点的海拔高度（如果是RGB图像，那么会有RGB三个通道的对应“地貌”），局部极小值是集水盆（盆地），集水盆的边界就形成分水岭。通过找到图像中的分水岭，我们就能直接按照图像边缘把图片分割成很多山谷形成的小图片。
 
+最经典的计算方法分两步：
 
+1. 排序
 
+    将每个像素的灰度从低到高排列，计算其中每点的梯度
 
+2. 浸没
 
+    **按照用户指定或算法得到的点**，对“盆地注水”，也就是用相同的指标判断连在一起的盆地，并将这些区域合并到一起
 
+3. 重复以上步骤，直到图像被填充
 
+利用分水岭算法，我们就可以有针对性地（按照指定像素点或某个范围）进行图像分割
 
+函数`watershed()`提供了分水岭算法的实现
 
+```c++
+void cv::watershed(cv::InputArray image, cv::InputOutputArray markers)
+```
 
+### 图像修补API
 
+OpenCV还基于边缘检测和运算，提供了图像修补算法的现成API
 
-
+```c++
+void cv::inpaint(cv::InputArray src, //输入图像
+                 cv::InputArray inpaintMask, //修复掩膜 
+                 cv::OutputArray dst, //输出图像
+                 double inpaintRadius, //需要修补的每个点的圆形邻域
+                 int flags //修补算法选择，可以使用INPAINT_NS算法和INPAINT_TELEA算法
+                );
+```
 
 ## 特征检测
 
@@ -428,6 +590,14 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 ## 综合应用示例
 
 下面来介绍几个经典的传统机器视觉算法（基于OpenCV-python）应用
+
+### 印刷体数字识别
+
+
+
+
+
+
 
 ### 颜色识别
 
@@ -468,3 +638,5 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 https://zhuanlan.zhihu.com/p/114185254
 
 https://blog.csdn.net/qq_15971883/article/details/88699218
+
+https://blog.csdn.net/weixin_40802676/article/details/88379409

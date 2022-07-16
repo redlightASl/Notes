@@ -589,7 +589,7 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 
 ## 综合应用示例
 
-下面来介绍几个经典的传统机器视觉算法（基于OpenCV-python）应用
+下面来介绍几个经典的传统机器视觉算法（基于OpenCV-python）应用。源码都是基于OpenCV的，但是如果能使`imutils`等图像库，可以更简单地实现应用。如果使用嵌入式的OpenMV等设备，还可以直接使用micro-python图形库
 
 ### 印刷体数字识别
 
@@ -598,6 +598,94 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 > 这个应用在2021年电赛控制题（小车题）中出现，但这个场景其实做了一定程度的简化。字符周围是空白的，并且有黑色框框出，因此模板匹配的效果是不错的；但实际上印刷体数字常常在纸质资料里出现，较小且往往与其他字符混在一起，需要对背景进行处理且需要进行字符分割，因此不容易识别。商用的OCR算法一般都很复杂
 >
 > 这里仅对电赛赛题里面的印刷体数字识别方法进行介绍
+
+印刷体数字的识别相对简单，主要用到模板匹配的算法，只要制作好合适的模板，在预处理时候将字符边框筛选出来就可以完成任意印刷体数字的识别了
+
+模板可以通过PS或者其他图片处理工具制作。一般推荐在简单的任务中使用灰度图片作为模板，目标图片也要处理成为灰度格式，这样速度会快很多。这里使用一套已经制作好的0~8数字模板，笔者使用OpenMV对数字拍照后用PS将其二值化并缩小到合适的尺度（大小为2KB），放置在`template`目录下，使用glob库遍历路径来加载
+
+```python
+templates_path = glob.glob(r'template\*.pgm') # 加载模板
+
+for template in templates_path:
+    if "one" in template:
+        template_one = cv2.imread(template)
+    elif "two" in template:
+        template_two = cv2.imread(template)
+    elif "three" in template:
+        template_three = cv2.imread(template)
+    elif "four" in template:
+        template_four = cv2.imread(template)
+    elif "five" in template:
+        template_five = cv2.imread(template)
+    elif "six" in template:
+        template_six = cv2.imread(template)
+    elif "seven" in template:
+        template_seven = cv2.imread(template)
+    elif "eight" in template:
+        template_eight = cv2.imread(template)
+```
+
+下面开始处理要识别的图片，首先读入图像并将其二值化
+
+```python
+if __name__=='__main__':
+    image = cv2.imread("example.jpg")
+    image = cv2.resize(image,(120,160)) ## QQVGA = 120x160
+    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) # 转换为灰度
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0) # 高斯模糊滤波
+    edged = cv2.Canny(blurred, 50, 200, 255) # 边缘检测
+    simple_show(edged)
+```
+
+其中`simple_show`函数如下，仅仅用于展示图片结果
+
+```python
+def simple_show(img):
+    cv2.imshow("temp",img)
+    cv2.waitKey(0)
+```
+
+这里使用下面的图像作为识别目标
+
+![example](传统CV算法应用.assets/example.jpg)
+
+变换之后得到：
+
+![image-20220715152350961](传统CV算法应用.assets/image-20220715152350961.png)
+
+这里的Canny边缘检测其实可以去掉，因为下一步还会对图片进行轮廓检测，不过这里还是加入Canny算子来保证准确。这里创建了一个空图片，用它存储检测到的轮廓，调用`findContours`函数来获取轮廓并取得其中对应数字的轮廓，在下面的`drawContours`中绘制出来。**number_contour需要手动调参**，因为并不确定哪个轮廓对应数字。
+
+```python
+empty_img = new_background(image.shape,np.uint8)
+contours = cv2.findContours(edged.copy(), cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+contour = contours[0]
+number_contour = 4
+cv2.drawContours(empty_img, contour,contourIdx=number_contour,color=(0, 255, 0), thickness=2)
+simple_show(empty_img)
+```
+
+这里`new_background`函数实际上调用了numpy来生成一个指定大小的矩阵
+
+```python
+def new_background(shape,dtype):
+    return np.zeros(shape,dtype)
+```
+
+下面就是用这个结果获取ROI
+
+```python
+x, y, w, h = cv2.boundingRect(contour[number_contour])
+roi = cv2.resize(edged[y:y+h, x:x+w], (57, 88))
+simple_show(roi)
+```
+
+得到
+
+![image-20220715154232443](传统CV算法应用.assets/image-20220715154232443.png)
+
+
+
+
 
 
 
@@ -613,7 +701,144 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 
 ### 车牌识别
 
-车牌识别和一般的印刷体数字识别有相似之处：字符都比较规整且要求识别速度相对较快。但车牌识别场景下，数字是连在一起的，因此需要先进行字符分割，在得到独立字符的基础上再进行印刷体数字识别。这里代码略去了印刷体数字识别部分，仅展示车牌识别的主要过程
+车牌识别和一般的印刷体数字识别有相似之处：字符都比较规整且要求识别速度相对较快。但车牌识别场景下，数字是连在一起的，因此需要先进行字符分割，在得到独立字符的基础上再进行印刷体数字识别。同时车牌中还含有24字母和汉字，这些字符也都需要一一识别，因此预先制作模板的过程也需要注意。示例中使用了下面的图片作为车牌识别的输入
+
+车牌识别的过程可以分成：预处理、车牌定位、去除边框、字符分割、模板匹配、字符识别这几个过程，下面来依次介绍
+
+#### 预处理
+
+
+
+
+
+#### 车牌定位
+
+
+
+
+
+
+
+
+
+#### 去除边框
+
+
+
+
+
+
+
+#### 字符分割
+
+
+
+
+
+#### 模板匹配
+
+
+
+
+
+
+
+#### 字符识别
+
+
+
+首先要调用opencv库，这里为了方便顺便加载了imshow函数
+
+```python
+import cv2
+from cv2 import imshow
+```
+
+读入图像并将其二值化
+
+```python
+image = cv2.imread(input_image_path, 0)  # 读取为灰度图
+_, image = cv2.threshold(image, 50, 255, cv2.THRESH_BINARY)  # 二值化
+```
+
+这样就能得到黑白二色的图像，如下图所示 
+
+
+
+
+
+之后就是执行图像分割了。
+
+
+
+下面是全部程序
+
+```python
+import cv2
+from cv2 import imshow
+
+def CharDivide(input_image_path):
+    """一个印刷体数字的图像分割算法"""
+    kernel1 = cv2.getStructuringElement(cv2.MORPH_RECT, (7, 7))
+    kernel2 = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
+
+    image = cv2.imread(input_image_path, 0)  # 读取为灰度图
+    _, image = cv2.threshold(image, 50, 255, cv2.THRESH_BINARY)  # 二值化
+    image = cv2.erode(image, kernel=kernel1)  # 腐蚀
+    image = cv2.dilate(image, kernel=kernel2)  # 膨胀
+    imshow("test",image)
+    h, w = image.shape  # 原图的高和宽
+
+    list1 = []  # 列和
+    list2 = []  # 行和
+    img_list = []  # 分割数字图片存储列表
+    temp = []  # 存储某一个数字的所有行索引值
+    n = 0  # 数字图片数量
+
+    # 裁剪字符区域
+    for i in range(w):
+        list1.append(1 if image[:, i].sum() != 0 else 0)  # 列求和,不为0置1
+    for i in range(h):
+        list2.append(1 if image[i, :].sum() != 0 else 0)  # 行求和,不为0置1
+    # 求行的范围
+    flag = 0
+    for i, e in enumerate(list1):
+        if e != 0:
+            if flag == 0:  # 第一个不为0的位置记录
+                start_w = i
+                flag = 1
+            else:  # 最后一个不为0的位置
+                end_w = i
+    # 求列的范围
+    flag = 0
+    for i, e in enumerate(list2):
+        if e != 0:
+            if flag == 0:  # 第一个不为0的位置记录
+                start_h = i
+                flag = 1
+            else:  # 最后一个不为0的位置
+                end_h = i
+    l = ([i for i, e in enumerate(list1) if e != 0])  # 列和列表中不为0的索引
+    for x in l:
+        temp.append(x)
+        if x + 1 not in l:  # 索引不连续的情况
+            if len(temp) != 1:
+                start_w = min(temp)  # 索引最小值
+                end_w = max(temp)  # 索引最大值
+                img_list.append(image[start_h:end_h,
+                                      start_w:end_w])  # 对该索引包括数字切片
+                n += 1
+            temp = []
+    n = 0
+    for img in img_list:
+        cv2.imshow('image', img)
+        n += 1
+        cv2.imwrite('data/' + str(n) + '.jpg', img)
+        cv2.waitKey(0)
+
+if __name__ == '__main__':
+    CharDivide('demo.jpg')
+```
 
 
 
@@ -623,9 +848,46 @@ OpenCV中的特征检测、角点检测等算法由xfeature2d库提供，这是�
 
 ### 小车巡线
 
+小车视觉巡线的主要思路就是让小车获取到图片中线的位置始终处在图片规定的中心点。这个过程分为两步——**获取图片中线的位置**和**改变小车位置**，前者一般只要二值化处理图片以后用腐蚀膨胀（或者说顶帽）来去除无关背景就能够获取线的位置了；后者需要使用PID或者其他回归算法（比如最小二乘回归）控制小车方向，需要反复调参。和CV相关的内容主要是前者，所以这里只介绍获取图片中线的位置这一算法
 
+```python
+import cv2
+import numpy as np
 
+standard_center = 320 # 标准中心位置
+read_center = 320 # 实际中心位置
 
+if __name__=='__main__':
+    cap = cv2.VideoCapture(0)
+    while True:
+        ret, frame = cap.read()
+        frame = cv2.resize(frame,(640,480))
+        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) # 转换为灰度
+        retval, dst = cv2.threshold(frame, 0, 255, cv2.THRESH_OTSU) # 最大方差阈值化
+        dst = cv2.dilate(dst, None, iterations=2) # 膨胀
+        dst = cv2.erode(dst, None, iterations=6) # 腐蚀
+
+        line_target = dst[400] # 取出第400行的像素值用于获取线的位置
+        try:
+            white_count = np.sum(line_target == 0) # 找到黑色像素点的个数
+            white_index = np.where(line_target == 0) # 找到对应索引
+            if white_count == 0:
+                white_count = 1
+            
+            # 用黑色边缘的位置和黑色的中央位置计算出实际中心点与标准中心点的偏移量
+            read_center = (white_index[0][white_count - 1] + white_index[0][0]) / 2
+            direction = read_center - standard_center
+            print(direction)
+        except:
+            continue
+        cv2.imshow("trail", dst)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+```
+
+> 简单说明一下后面的操作：如果得到结果大于或小于规定的阈值（上面程序设定为70），就要让车左右转向，如果加入PID，需要额外调节P和I参数，D参数可以设置为0（前提是车速不太快）
+
+这个算法比较简单，适用于大多数单线的场景，但是如果出现了十字交叉的线，就需要使用额外的代码来判定是否需要转弯
 
 
 
@@ -646,3 +908,9 @@ https://zhuanlan.zhihu.com/p/114185254
 https://blog.csdn.net/qq_15971883/article/details/88699218
 
 https://blog.csdn.net/weixin_40802676/article/details/88379409
+
+https://www.jb51.net/article/208679.htm
+
+https://blog.csdn.net/weixin_46085748/article/details/124705704
+
+https://zhuanlan.zhihu.com/p/438448791

@@ -2,7 +2,7 @@
 
 UART实际上就是一个每次时钟跳变沿都输出当前TX-FIFO内一位数据的多计数器设备
 
-下面是两个简化的UART设计
+下面是两个简化的UART设计（UART-Lite）
 
 ### TX-UART
 
@@ -1058,3 +1058,6 @@ module apb_uart_sv
 endmodule
 ```
 
+## 功能相对完整的UART IP
+
+与上面简单的状态机UART-Lite实现不同，真正的UART往往有着更多功能，包括对有效数据位、停止位、校验位的设置，还有过采样和硬件流控等电路

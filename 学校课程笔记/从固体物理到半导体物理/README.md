@@ -5,10 +5,10 @@
 涵盖
 
 * 基础数学理论
-* 量子力学
-* 热力学与统计物理
+* 量子力学、热力学与统计物理
 * 固体物理
 * 半导体物理
+* 半导体器件
 
 个人能力有限，而且**对于物理的理解相当浅薄**，可能无法很好地完成，敬请谅解
 
@@ -19,7 +19,6 @@
 ```shell
 git clone git@github.com:VatinaCharo/NJUSolidStatePhysics.git
 git clone git@github.com:LiuRuiQi/Review-of-Solid-State-Physics.git
-
 
 https://zhuanlan.zhihu.com/p/266185438
 https://zhuanlan.zhihu.com/p/436659016

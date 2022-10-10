@@ -8,11 +8,11 @@
 >
 > 好难（（（
 
-主要针对ARM Cortex-M系列作的学习笔记
+主要针对ARM Cortex-M/A系列作的学习笔记
 
 重点总结
 
-* ARM指令集和Thumb指令子集
+* ARM指令集和Thumb-2指令集
 * TCM和扩展存储系统
 * 调试系统
 * CMSIS

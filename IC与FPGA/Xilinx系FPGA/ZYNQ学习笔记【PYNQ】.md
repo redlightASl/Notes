@@ -40,42 +40,47 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
 
 ## 使用便宜的Zynq开发板构建PYNQ
 
-目前官方PYNQ只支持PYNQ-Z1、PYNQ-Z2和一些高端的Zynq开发板（1k RMB以上，穷b学生根本买不起），所以如果是自己买了/画了便宜的Zynq开发板，很多时候就需要自己编译出一份PYNQ镜像，通过SD卡来安装
+目前官方PYNQ只支持PYNQ-Z1、PYNQ-Z2和一些高端的Zynq开发板（1k RMB以上，穷b学生根本买不起），所以如果是自己买了/画了便宜的Zynq开发板，很多时候就需要自己编译出一份PYNQ镜像，通过SD卡来安装；如果想把PYNQ应用在工程中，自然也需要自行编译PYNQ镜像。
 
 ### 硬件需求
 
 对于PYNQ应用，开发板至少需要有以下硬件：
 
-* 核心必须是Xilinx家的ZYNQ系列，也就是说要包含软核和硬核
+* 核心必须是Xilinx家的ZYNQ系列，至少得是ZYNQ-7000，官方推荐使用ZU系列来跑一些需要神经网络加速的应用（可能是因为ZU系列资源更充足）
 
-  其实只要有ZYNQ SoC的最小系统就可以使用PYNQ了，只不过没有以太网会很不方便
+* ZYNQ附属的最小系统，包括用于PL端的DDR3、DDR4等和用于主动加载PL端比特流的SPI FLASH。以太网、USB、声卡等都是可选的，但是为了方便使用一般会把以太网子系统包括进去
 
-* ZYNQ附属的最小系统，包括用于PL端的DDR3、DDR4等和用于主动加载PL端比特流的SPI FLASH
+  其中DDR大小至少要有512MB，太小的RAM带不动Ubuntu
 
-  其中DDR大小至少要有512MB
-
-* SD卡槽
-
-* 以太网接口
-
-* BOOT切换跳线/开关
+* SD卡槽，PYNQ需要从SD卡启动（除非使用petalinux二次定制）
 
 * BOOT切换跳线/开关
 
 * 串口/JTAG调试接口引出
 
-### 自定制PYNQ镜像文件
+### 自定制PYNQ镜像文件的环境配置
 
-按照[官方文档](https://pynq.readthedocs.io/en/latest/getting_started.html)的介绍就可以根据自己开发板的资源定制一套PYNQ镜像文件，搭建自定义的PYNQ系统主要需要两个必备材料
+> 以下所有流程均基于当前最新版本PYNQ-3.0.1（git branch为**v3.0.1**）
+>
+> 硬件环境如下：AMD R5-**5600g**（amd64），宿主机为**Windows10**专业版，采用**VirtualBox**虚拟机方案
+>
+> 软件环境如下：**Ubuntu20.04、Vivado2022.1、Vitis2022.1、Petalinux2022.1**
 
-* rootfs文件：这是一份不含内核信息的Linux镜像，包含了PYNQ所需的软件，其中ZYNQ 7000+需要使用arm镜像；ZYNQ UltraScale+徐娅使用aarch64镜像，简而言之这就是PYNQ的大脑
-* 开发板的板级描述文件：PetaLinux根据这些文件生成对应的嵌入式Linux内核，并和rootfs文件放在一起构成完整的基于ZYNQ PL+PS协同的Linux软硬件系统。板级描述文件可以使用两种方式提供
+按照[官方文档](https://pynq.readthedocs.io/en/latest/getting_started.html)的介绍就可以根据自己开发板的资源定制一套PYNQ镜像文件，搭建自定义的PYNQ系统主要需要三个必备材料
+
+* rootfs文件：这是一份不含内核信息的Linux根文件系统镜像，包含了PYNQ所需的软件，其中ZYNQ 7000+需要使用arm镜像；ZYNQ UltraScale+需要使用aarch64镜像。根文件系统的重要性不必多言，这个文件实际上是Xilinx的魔改版Ubuntu16.04，很多软件（指底层C库和一些基于C的上层应用）层面支持都已经在这里统一，因此上层的Jupyter Notebook和底层硬件驱动可以解耦。
+
+    如果需要移植PYNQ到自己的开发板上，那么这个文件一般是不需要改动，只要从官网下载合适版本的就可以了
+
+* sdist文件：这是PYNQ的Python源码文件合集（sdist表示Source Distribution软件发行版），可以用来加速编译过程
+
+* 开发板的板级描述文件：PetaLinux根据这些文件生成对应的uboot、Linux内核，并和rootfs文件放在一起构成完整的基于ZYNQ PL+PS协同的Linux软硬件系统，最后把sdist文件解压后扔进目录，从而构成完整的PYNQ系统。板级描述文件可以使用两种方式提供
   * 直接提供BSP文件（也就是下文中使用官方库提供的脚本生成/从官网下载的标准BSP，只支持PYNQ-Z1、Z2和一些其他的板子，不一定支持我们买到的便宜板子（甚至是矿板））
-  * 提供比特流文件和hdf文件
+  * 提供比特流文件和hdf文件（老版本）/xsa文件（新版本），自行组织BOARD_BSP目录和BSP文件
 
 下面分析一下整体流程
 
-1. 从GitHub的开源Repository中获取sd卡编译文件
+1. 从GitHub的开源[Repo](https://github.com/Xilinx/PYNQ)中获取sd卡编译文件
 
    相关SDK被放置在\<PYNQ repository\>/sdbuild目录下
 
@@ -84,9 +89,9 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
    > It's highly recommended to run these scripts inside of a virtual machine. The image building requires doing a lot of things as root and while every effort has been made to ensure it doesn't break the world this is far from guaranteed.This flow must be run in a Ubuntu based Linux distribution and has been tested on Ubuntu 16.04 and Ubuntu 18.04. Other Linux versions might work but may require different or additional packages. The build process is optimised for 4-cores and can take up to 50 GB of space.
    > 
    > 推荐使用虚拟机运行脚本，这些镜像构建需要root权限。流程已经在Ubuntu 16.04和Ubuntu 18.04中得到了测试，为保险起见应使用Ubuntu执行脚本，其他发行版可能会存在依赖问题。此外构建步骤需要4核处理器（再怎么说也得来个能用的赛扬）并且至少需要50G的硬盘空间
-   
+
    这步其实不是必须的，用户可以自行构建一个基于ubuntu20的项目，但需要更改很多环境配置，因此不推荐使用除了ubuntu 16和18以外的任何版本构建pynq
-   
+
 2. 为了完成README文档所说的注意事项，我们需要先准备一个编译环境
 
    官方推荐安装以下系统的虚拟机：
@@ -95,12 +100,21 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
    | ------------ | --------- |
    | Ubuntu 16.04 | xenial    |
    | Ubuntu 18.04 | bionic    |
+   | Ubuntu 20.04 | Focal     |
 
-   可以选择安装Ubuntu或者使用虚拟机（玩嵌入式怎么能不来个双系统/纯Linux系统呢！虚拟机没有灵魂！当然可以尝试白嫖学校实验室的电脑装Ubuntu）
+   可以选择安装Ubuntu或者使用虚拟机
 
-   如果选择使用安装Ubuntu，无论是双系统还是猛男直接上，需要的步骤都很简单了，直接下一步吧
+   > ~~玩嵌入式怎么能不来个双系统/纯Linux系统呢！虚拟机没有灵魂！当然可以尝试白嫖学校实验室的电脑装Ubuntu~~
+   >
+   > 如果你想要正常使用PYNQ，建议不要折腾Linux实体机——因为这个东西的环境实在太难配了，还有很多莫名其妙的BUG，而且你永远不知道哪个版本适合你的PC，能随时删掉重装的虚拟机是最稳妥的选择
+
+   如果选择使用安装Ubuntu，无论是双系统还是直接上实体机Linux，需要的步骤都很简单了，直接下一步吧
 
    如果选择使用虚拟机，还需要安装vmtool/vagrant-vbguest等操作来获得舒畅的使用体验，建议先放下这个教程去查查虚拟机里linux的优化，并按照官网给出的建议实施
+
+   **虚拟机的大小建议为500GB**，因为需要装一大堆软硬件工具和各种依赖包、配置工具
+
+   > 官方推荐使用VirtualBox，笔者也赞同——因为不需要折腾太多VMware的“特性”
 
 3. 使用\<PYNQ repository\>/sdbuild/scripts/setup_host.sh脚本在已有的Ubuntu系统中进行环境配置
 
@@ -110,9 +124,11 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
    sudo ./setup_host.sh
    ```
 
-   如果用zsh、csh的话要先切bash shell再执行脚本
+   **如果用zsh、csh的话要先切bash shell再执行脚本**
 
-4. 最折磨人的配环境！编译一套PYNQ你需要如下软件环境：
+   > 使用Dash的Ubuntu也要记得先把默认shell切换成原生bash，否则可能会出现一些莫名其妙的问题
+
+4. 最折磨人的配工具环境！编译一套PYNQ你需要如下软件环境：
 
    * PetaLinux：用于在Xilinx家SoC上定制编译嵌入式Linux的SDK
    * Vivado：Xilinx的亡牌软件，懂得都懂，不懂就去百度
@@ -132,20 +148,83 @@ PYNQ应用同时包含了硬件设计和软件驱动，比如PL bitstreams和Pyt
    petalinux-util --webtalk off
    ```
 
-   注意：检查Vivado的licenses，因为需要调用Xilinx IP库里面的HDMI IP
+   注意：检查Vivado的licenses，因为PYNQ的硬件综合实现过程中需要调用Xilinx IP库里面的*HDMI IP*
 
-5. 配完环境以后就可以开始make了
+5. 从[PYNQ官网的Board页面](www.pynq.io/board.html)下载rootfs和sdist
+
+   从页面向下翻就可以找到**PYNQ rootfs aarch64/arm v3.0.1**两行，它们分别是用于zu和z7000的rootfs和通用的PYNQ软件包
+
+   > 这一步操作必须用梯子，因为pynq.io的服务器在国外，不用梯子这辈子都不要想下载到文件
+   >
+   > rootfs的另一个获取方式是通过xilinx官网的下载url，格式如下所示
+   >
+   > ```
+   > https://www.xilinx.com/member/forms/download/xef.html?filename=pynq_rootfs_aarch64_v2.x.zip
+   > ```
+   >
+   > 或类似下面的格式
+   >
+   > ```
+   > https://www.xilinx.com/member/forms/download/xef.html?filename=pynq_rootfs_arm_v3.0.1.zip
+   > ```
+   >
+   > 最后`filename=`一项指明要下载哪个rootfs
+   >
+   > 但这个方式无法下载sdist，所以还是要用最新版本的sdist
+
+6. 将rootfs和sdist复制到指定位置并重命名
+
+   ```shell
+   cp pynq_rootfs.<arm|aarch64>.tar.gz <PYNQ repository>/sdbuild/prebuilt/pynq_rootfs.<arm|aarch64>.tar.gz
+   cp pynq-<version>.tar.gz <PYNQ repository>/sdbuild/prebuilt/pynq_sdist.tar.gz
+   ```
+
+   也就是`sdbuild/prebuilt`目录
+
+   注意：下载下来的文件格式可能不同，必须使用压缩并打包过的`.tar.gz`格式，脚本才能够正确识别；而且**文件名要和上面所说文件名一致**
+
+7. 确定要编译的是哪个BSP，把参数加进make指令里
+
+   使用参数`PREBUILT`来指定要使用的rootfs，这里默认使用了预编译的默认命名rootfs，就不需要加进去
+
+   使用参数`BOARDS`来指定编译的BSP目标，这里选择Pynq-Z2
+
+   使用参数`REBUILD_PYNQ_SDIST`来指定是否使用预编译的sdist，这里选择False，就不用加了
+
+   使用参数`REBUILD_PYNQ_ROOTFS`来指定是否使用预编译的rootfs，这里选择False，就不用加了
+
+8. 把所有环境都配完以后就可以开始make了
 
    这是骷髅宝宝都会的操作！
 
    ```shell
    cd <PYNQ repository>/sdbuild/
-   make
+   make BOARDS=Pynq-Z2
    ```
 
-   需要注意一点：这套操作包括了综合IP核、实现PS-PL协同与AMBA总线、实现片上硬件系统、导出比特流、编译整个嵌入式Linux内核、编译生成一堆软件和依赖......所以“**这个操作可能会花费数个小时**”
+   需要注意一点：这套操作包括了综合IP核、实现PS-PL协同与AMBA总线、实现片上硬件系统、导出比特流、编译U-Boot和整个嵌入式Linux内核、解压根文件系统、下载并安装PYNQ的基础Python包、编译生成一堆软件和依赖......所以“**这个操作可能会花费数个小时**”
+
+   这里先使用Pynq-Z2开发板作为验证。
+
+   **如果不出意外的话，编译过程中肯定会出意外，可以参考后面给出的Debug过程和其他博文来尝试解决**
+
+如果编译通过，那么就可以转到后面刻录镜像到SD卡部分，上板验证
 
 ### 自定制镜像
+
+
+
+
+
+
+
+
+
+### Debug过程
+
+
+
+
 
 
 
@@ -225,6 +304,14 @@ SD卡需要事先格式化好
 6. 卸载文件系统，拔出sd卡
 
    这样就完成了刻录流程！
+
+上面的流程是最标准的，而PYNQ常常会编译出一个`.img`镜像文件，我们处理这个文件只需要将其用dd指令写入sd卡即可，如下所示
+
+```shell
+sudo dd if=./pynq.img of=/dev/sdb
+```
+
+需要注意这里使用的sd卡必须是经过格式化且没有分区的才行
 
 ### 安装SD卡、配置网络、连接上位机
 

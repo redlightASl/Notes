@@ -94,6 +94,8 @@ pg160：、GMII、RGMII网口IP介绍
 
 xapp742：AXI-VDMA的示例
 
+XAPP1247：7000系列FPGA的MultiBoot（相当于OTA）技巧
+
 ### Kintex-7系列
 
 **ug906**：Vivado时序分析与收敛技巧指南

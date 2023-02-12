@@ -42,14 +42,6 @@
 
 **静态时序分析**（Static Timing Analysis，STA）就是针对关键路径的建立时间-保持时间进行分析，从而优化片上器件工作速率的方法
 
-STA使用建立时间检查和保持时间检查来
-
-
-
-
-
-
-
 ## 跨时钟域问题
 
 > 假设我们要使用低速串口发送从高速ADC读取的数据，会出现两个子电路时钟不匹配的问题；如果我们在FPGA中使用软核CPU搭建SoC，还常常会碰到CPU、片上总线、片上外设时钟不同的情况
@@ -114,9 +106,9 @@ STA使用建立时间检查和保持时间检查来
 
 2. 快时钟域到慢时钟域
 
+    由于快时钟到慢时钟都是通过分频器实现，因此添加多周期时钟路径约束比较方便。如下图依次规定每个CLKP周期相对CLKM上升沿的延迟
 
-
-
+    ![image-20230212182426710](FPGA学习笔记【时序约束】.assets/image-20230212182426710.png)
 
 ## Xilinx FPGA的时序约束
 
@@ -158,17 +150,11 @@ STA工具可以根据上面的条件对时序路径的逻辑单元延时和互�
 
 需要注意：**在Fast（最大允许延迟）条件下，STA工具会检查建立时间；在Slow（最小允许延迟）环境下会检查保持时间。**
 
-
-
-
-
-
-
-
+通过检查仿真结果，再与开发者指定的时序约束比较，就可以得到哪些关键路径延迟超过允许延迟或勉强满足要求，综合器会重新对这些关键路径进行布局布线来尽可能满足时钟约束或改善当前延迟，最后呈现给开发者一份分析报告，如果综合器“尽力了”，开发者就只能重新设计电路来满足要求
 
 ### 源时钟约束
 
-向布局布线工具传递时钟路径的速率和占空比
+最基本的时钟约束就是向布局布线工具传递时钟路径的速率和占空比，工具将其视作源时钟进行分析
 
 源时钟约束和衍生时钟约束的基本语法如下
 
@@ -177,6 +163,8 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports {CL
 ```
 
 其中`create_clock`指明了该语句是时钟约束语句；参数`-name`指明了本条语句所创建时钟的名字；`-period`参数指明了时钟的周期，单位是ns；`-waveform`语句由一个元组构成，第一个元素是时钟上升沿时刻，第二个参数指明了适中的下降沿时刻；最后的`get_ports`语句用于确定要施加是一种约束的路径名
+
+![image-20230212180229020](FPGA学习笔记【时序约束】.assets/image-20230212180229020.png)
 
 ### 衍生时钟约束
 
@@ -188,13 +176,15 @@ create_clock -add -name sys_clk_pin -period 10.00 -waveform {0 5} [get_ports {CL
 
 如果手动编写时钟约束，只需要按照和上面一样的语法即可；但对于衍生时钟，Xilinx官方推荐使用Vivado的图形化配置功能以避免约束出错，流程在后续进行说明
 
-需要清楚：时钟具有不确定性，我们常常还要用到不确定时钟声明来约束衍生时钟
+需要清楚：时钟具有不确定性，我们常常还要用到不确定时钟声明来约束衍生时钟。时钟不确定约束比源时钟约束更加严苛，综合器会为这些时钟增加裕量来应对潜在的不稳定性
 
 时钟不确定性主要来源于以下三点：
 
-* 时钟**偏差**（Diff）：时钟源与不同触发器中间的连线延迟导致时间偏差
-* 时钟**抖动**（Jitter）：时钟边沿的超前或滞后
-* 时钟**延迟**（Delay）：连线网络和时钟源内部电路导致的延迟
+* 时钟**偏差**（**Diff**）：时钟源与不同触发器中间的连线延迟导致时间偏差
+* 时钟**抖动**（**Jitter**）：时钟边沿的超前或滞后
+* 时钟**延迟**（**Delay**）：连线网络和时钟源内部电路导致的延迟
+
+![image-20230212180834348](FPGA学习笔记【时序约束】.assets/image-20230212180834348.png)
 
 不确定时钟声明采用以下语句约束
 
@@ -216,6 +206,19 @@ create_clock -period 10.00 -waveform {5 10.0} [get_ports CLK_90P]
 
 通过更改`-waveform`参数即可控制时钟延迟
 
+时钟延迟包括*网络延迟*和*源延迟*，**网络延迟**是时钟定义点到触发器时钟引脚的延迟；**源延迟**是时钟源到时钟定义点的延迟，如下图所示：
+
+![image-20230212180953472](FPGA学习笔记【时序约束】.assets/image-20230212180953472.png)
+
+Vivado支持使用下列语句声明时钟延迟
+
+```tcl
+set_clock_latency 0.8 [get_clocks CLK_NET_DELAY] # 声明网络延迟
+set_clock_latency 0.3 -source [get_clocks CLK_SOURCE_DELAY] # 声明源延迟
+```
+
+添加`min`或`-max`可以指定允许最小或最大的网络/源延迟
+
 ### 异步时钟约束
 
 对于异步时钟，时序约束主要是为了声名哪些路径传递了异步时钟，这是之前提到过Vivado的默认要求
@@ -233,6 +236,18 @@ create_clock -add -name sys_clk_async -asynchronous -period 10.00 -waveform {0 5
 ### 互斥时钟约束
 
 两个非同步时钟一定要进行时序约束，否则对应时钟路径可能会被布局布线工具优化掉
+
+### 输入输出时钟约束
+
+Vivado允许约束输入输出路径的延迟，关键路径上所有逻辑通路需要挂载到某个时钟线上，工具会自动对其延迟进行约束，这为一些高速接口设计提供了便利
+
+```tcl
+create_clock -period 15 -waveform {5 12} [get_ports input_logic_clk]
+set_input_delay -clock input_logic_clk -max 7.0 [get_ports input_signal]
+set_input_delay -clock input_logic_clk -min 3.0 [get_ports input_signal]
+```
+
+上面的语句用于约束输入延迟，对于输出延迟同理，只需要把指令改成`set_output_delay`
 
 ## 使用Vivado创建时钟时序约束
 
@@ -260,6 +275,18 @@ create_clock -add -name sys_clk_async -asynchronous -period 10.00 -waveform {0 5
 
 上图给出了新建时钟的页面，对应填写配置即可生成下方Command栏中显示的语句，并自动添加到项目的xdc文件中
 
+### 设计规则检查
+
+Vivado提供了时序DRC（Design Rules Check）的功能，使用`set_max_transition`和`set_max_capacitance`可以检查设计中的所有端口和引脚是否都满足转换时间和电容的要求。例如：
+
+```tcl
+set_max_capacitance 0.5 [current_design]
+```
+
 ## 参考资料
 
 https://blog.csdn.net/qq_43045275/article/details/123832477
+
+https://blog.csdn.net/qq_43045275/article/details/124076201
+
+https://blog.csdn.net/qq_43045275/article/details/123977462

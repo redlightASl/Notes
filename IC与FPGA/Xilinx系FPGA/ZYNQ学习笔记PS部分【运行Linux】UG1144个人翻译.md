@@ -1,3 +1,5 @@
+本篇博文内容为Xilinx官方文档UG1144_2022_2的个人翻译
+
 # 在Zynq-7000上运行Linux
 
 > Petalinux配环境全流程

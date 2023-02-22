@@ -82,6 +82,8 @@ ug865：ZYNQ-7000引脚定义
 
 ug1233：Xilinx移植版opencv使用指南
 
+ug873：基于SDK的旧版Zynq使用手册
+
 **ds190**：ZYNQ-7000系列简介
 
 pg021：AXI-DMA的IP核介绍

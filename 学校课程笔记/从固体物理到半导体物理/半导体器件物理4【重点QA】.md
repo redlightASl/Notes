@@ -723,7 +723,7 @@
     $$
      强反型时表面电荷： 
     $$
-     Q_{sc}=Q_{S}=-\sqrt{2q\epsilon_s N_A (2\psi_{FP})}
+    Q_{sc}=Q_{S}=-\sqrt{2q\epsilon_s N_A (2\psi_{FP})}
     $$
      氧化层电容：等于氧化层介电常数与氧化层厚度之比
     $$

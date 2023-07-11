@@ -1061,3 +1061,5 @@ endmodule
 ## 功能相对完整的UART IP
 
 与上面简单的状态机UART-Lite实现不同，真正的UART往往有着更多功能，包括对有效数据位、停止位、校验位的设置，还有过采样和硬件流控等电路
+
+具体电路可以参考https://github.com/alexforencich/verilog-uart的实现

@@ -1,9 +1,3 @@
-本系列博文旨在以计算机组成的角度剖析嵌入式应用中较常见的ARM架构，由于CM0是相对先进且*简单*的内核，所以选择了CM0作为切入点而不是STM32中常见的CM3/CM4
-
-部分资料来源：何宾《ARM Cortex-M0全可编程SoC》、Joseph Yiu著 吴常玉 张淑 吴卫东等译《ARM Cortex-M0玉Cortex-M0+权威指南》、ARM官方资料《AT510-BU-98000-r1p0-00rel0》（cortexm0_designstart工具包）、《DDI0432C-cortex_m0_r0p0_trm》（ARM Cortex-M0官方手册）
-
-整套博文应当在读者具有计算机体系结构基础知识的情况下阅读，否则不容易形成连贯的感知。推荐没有计组基础的老哥先去阅读胡伟武老师的[《计算机体系结构》](https://github.com/foxsen/archbase)
-
 # Cortex-M0解读2【基础指令】
 
 CM0基于ARMv6-M架构，支持Thumb-1的超集和Thumb-2的子集。对于ARM的v6-M和v7-M架构，简单来说可以用下面这段话描述：

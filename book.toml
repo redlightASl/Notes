@@ -1,0 +1,15 @@
+[rust]
+edition = "2021"
+
+[book]
+authors = ["RedlightASl"]
+language = "zh-CN"
+title = "Redlight's Notebook"
+multilingual = false
+src = "."
+description = "A Notebook in mdbook"
+
+[build]
+
+[output.html]
+mathjax-support = true

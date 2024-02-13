@@ -16,9 +16,11 @@ All of my notes in this repository were edited by **Typora** and **VSCode**,It w
 
 welcome to visit my blogs in [Redlight's home](https://redlightasl.github.io/)
 
-It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/) or **VSCode**.Besides,here's an interesting [Typora theme](https://github.com/yfzhao20/Typora-markdown) for Typora,enjoy it!
+It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/) or **VSCode**. Besides, here's an interesting [Typora theme](https://github.com/yfzhao20/Typora-markdown) for Typora, enjoy it!
 
-Mindmaps were edited by **XMind**,you can download it from net and check out these notes.
+Mindmaps were edited by **XMind**, you can download it from net and check out these notes.
+
+BTW, you can also enjoy the notes by **mdbook** as a set of e-book.
 
 ### License
 

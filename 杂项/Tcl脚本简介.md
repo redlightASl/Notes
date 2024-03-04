@@ -39,7 +39,7 @@ puts "helloworld"
 
 在shell中如下执行：
 
-```shell
+```bash
 $ tclsh hello.tcl # Unix
 > tclsh hello.tcl # Windows
 ```

@@ -1,6 +1,6 @@
 # Personal Notes Repository
 
-[中文](README.md) | **English** |
+[中文](./README.md) | **English** |
 
 [![](https://img.shields.io/badge/license-GPL--3.0-blue)](https://github.com/redlightASl/Notes/blob/master/LICENSE)
 
@@ -21,6 +21,8 @@ It was RECOMMENDED to read these passage through [Typora](https://www.typora.io/
 Mindmaps were edited by **XMind**, you can download it from net and check out these notes.
 
 BTW, you can also enjoy the notes by **mdbook** as a set of e-book.
+
+> On Windows platform, you are able to view mdbook doc by running script `fast_view.bat`
 
 ### License
 

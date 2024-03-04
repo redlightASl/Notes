@@ -1,6 +1,6 @@
 # 个人学习笔记库
 
-**中文** | [English](README_en.md) |
+**中文** | [English](./README_en.md) |
 
 [![](https://img.shields.io/badge/license-GPL--3.0-blue)](https://github.com/redlightASl/Notes/blob/master/LICENSE)
 
@@ -18,7 +18,9 @@
 
 部分思维导图使用*XMind*制作，可自行查看
 
-您可以使用**mdbook**在本地编译后以电子书的形式查看笔记，该功能目前正在完善中
+您可以使用**mdbook**在本地编译后以电子书的形式查看笔记
+
+> 在Windows环境下，可以使用脚本 `fast_view.bat` 以mdbook形式查看
 
 ### 硬广告植入
 

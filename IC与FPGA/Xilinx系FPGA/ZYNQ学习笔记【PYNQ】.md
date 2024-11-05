@@ -239,7 +239,10 @@ PYNQ提供了自启动Python脚本功能，用户只需要编写一个叫`boot.p
 最后一步是编写bsp描述文件，一个基本的`my_pynq.bsp`文件格式如下
 
 ```shell
-
+ARCH_${BOARDS} := arm
+BSP_${BOARDS} :=
+BITSTREAM_${BOARDS} := base/base.bit
+STAGE4_PACKAGES_Pynq-Z2 := pynq ethernet
 ```
 
 按照基本目录结构构建完毕后 ，就可以按照正常流程进行构建编译生成镜像
@@ -398,3 +401,12 @@ do dhclient wlan0
 
 
 
+### 其他参考资料
+
+https://me.csdn.net/qq575542641
+
+https://blog.csdn.net/quhai1340/article/details/102799896
+
+bionic.arm.2.x.img下载地址：https://www.xilinx.com/member/forms/download/xef.html?filename=pynq_rootfs_arm_v2.x.zip
+
+pynq_rootfs_arm_v2.x.zip下载地址：https://www.xilinx.com/member/forms/download/xef.html?filename=pynq_rootfs_arm_v2.4.zip

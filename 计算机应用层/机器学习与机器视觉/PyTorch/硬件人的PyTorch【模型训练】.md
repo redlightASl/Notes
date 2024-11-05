@@ -337,13 +337,13 @@ PyTorch提供`torch.optim`优化器框架，包含了一下几种优化器
 + torch.optim.ASGD
 + torch.optim.Adadelta
 + torch.optim.Adagrad
-+ torch.optim.Adam
++ torch.optim.**Adam**
 + torch.optim.AdamW
 + torch.optim.Adamax
 + torch.optim.LBFGS
 + torch.optim.RMSprop
 + torch.optim.Rprop
-+ torch.optim.SGD
++ torch.optim.**SGD**
 + torch.optim.SparseAdam
 
 以上这些优化算法均继承于`Optimizer`类，基类定义如下：

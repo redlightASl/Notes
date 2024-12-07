@@ -232,7 +232,7 @@ linux下面只要使用官网给出的指令安装好依赖工具即可；而在
 
 ```shell
 cd <verilator-dir>
-autoconfig
+autoconf
 ./configure
 make #或make -j使用多核编译
 make install

@@ -1,6 +1,6 @@
 参考资料：https://zh.wikipedia.org/wiki/ARM%E6%9E%B6%E6%A7%8B
 
-# ARM指令集与Cortex-M内核实现1【背景知识】
+# ARM内核学习1【背景知识】
 
 **ARM**，即Advanced RISC Machines，先进的精简指令集架构处理器，它起源于英国剑桥大学。
 

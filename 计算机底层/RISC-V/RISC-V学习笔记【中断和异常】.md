@@ -54,7 +54,7 @@ RISC-V对于异常处理的实现相对简单，并不如ARM Cortex系列CPU那�
 
 ### 进入异常
 
-该过程在RISC-V架构中定义为**陷阱**（Trap），也就是“进入异常”
+该过程在RISC-V架构中定义为**陷入**（Trap），也就是“进入异常”
 
 1. 停止执行当前程序流，转而从CSR寄存器mtvec定义的PC地址开始执行
 
@@ -227,7 +227,7 @@ mtvec寄存器最低位MODE域仅支持模式0，在异常响应时处理器跳�
 
 对于同步异常，mepc值更新为发生异常的指令PC值；对于精确异步异常，mepc更新为下一条尚未执行的指令PC值；非精确异步异常，mepc更新为当前发生异常的指令PC值
 
-## CLIENT模块
+## CLINT模块
 
 CLINT即**处理器核局部中断控制器**（Core Local Interrupts Controller）
 

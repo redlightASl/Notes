@@ -56,13 +56,25 @@ NVDLA支持使用TensorRT进行权重和算子量化、图优化、算子合并�
 
 目前其他大多数嵌入式平台搭载的NPU结构与瑞芯微RKNPU核心结构更加相似。以RK3588为例，其内置的RKNPU4共搭载3个2T@INT8算力的NPU核，支持多核心并行运算，NPU总算力为6TOPS。每个核心都包含CNA、DPU、PPU三个主要模块，结构如图所示。
 
+> RK3588的RKNPU疑似是[在NVDLA基础上改进而来](https://blog.tomeuvizoso.net/2024/03/rockchip-npu-update-1-walk-in-park.html?m=1)，支持3/2核心协同和单核心独立工作。片上使用AHB接口对NPU进行配置，NPU使用AXI接口从内存获取数据
+
 ![image-20250322000646362](./嵌入式机器学习6【SoC部署】.assets/image-20250322000646362.png)
 
-其中，CNA模块即卷积神经网络加速器（Convolution Neural Network Accelerator），专用于处理常见的卷积计算；DPU模块全称数据处理单元（Data Processing Unit），用于对张量数据格式进行变换；PPU表示平面处理单元（Planar Processing Unit），用于Img2Col、Permute等矩阵重排和张量拆分操作。全连接等通用GEMM操作被转移到乘法器阵列（MAC Array）和累加器（Accumulator）执行。
+其中，CNA模块即卷积神经网络加速器（Convolution Neural Network Accelerator），专用于处理常见的卷积计算；DPU模块全称数据处理单元（Data Processing Unit），用于对张量数据格式进行变换；PPU表示平面处理单元（Planar Processing Unit），用于Img2Col、Permute等矩阵重排和张量拆分操作。全连接等通用GEMM操作被转移到乘法器阵列（MAC Array）和累加器（Accumulator）执行。每个核心配备384KB的内部缓存，每个周期可执行1024x3个INT8的MAC操作，或等效于2048x3个INT4 MAC，或等效于512x3个FP16 MAC。默认NPU频率为1GHz，可通过软件配置动态调整频率。
+
+> 值得一提的是，同代RK3568作为RK3588的降级片，每个核心配有256KB缓存，每周期可执行512x1个INT8 MAC操作
+
+其单周期理论峰值算力计算公式为
+$$
+Perf=MACs * 2 (ops/cycle)
+$$
+![image-20251020125208672](./嵌入式机器学习6【SoC部署】.assets/image-20251020125208672.png)
 
 RKNPU支持INT4、INT8、INT16、FP16格式以及混合格式运算，通过RKNN-Toolkit工具进行权重稀疏化后可以在板端执行BF16、TF32运算。瑞芯微提供的RKNN-Toolkit工具能够针对RKNPU专用指令集进行神经网络图优化、权重量化、算子融合、调度优化等操作；RKNN-Toolkit-Lite工具能够直接在板端部署，完成算法在线调试等任务。
 
 NPU内部没有搭载负责通用计算和调度的MCU，因此所有NPU不支持的算子或低计算效率算子都需要转移至CPU执行。同时，RKNPU没有引入指令通路和数据通路解耦机制，导致多核并行运行的调度严重依赖于CPU。RKNPU具有非常高效的矩阵运算加速性能、非常小的片上面积，但其算子兼容性较差。
+
+> 举例来说，RKNPU的Reshape算子和Transpose算子执行速度非常慢，transformer里的tensor尺度变换需要被移动到CPU处理
 
 ## 在Hi3519DV500上部署
 
@@ -356,6 +368,12 @@ DieShot如下
 
 ![image-20250406103839872](./嵌入式机器学习6【SoC部署】.assets/image-20250406103839872.png)
 
+以昇腾310为例，昇腾AI处理器包含如下图所示的功能模块
+
+![image-20251103204959269](./嵌入式机器学习6【SoC部署】.assets/image-20251103204959269.png)
+
+其中AI Core+AI Vector是昇腾NPU的核心，也是执行AI计算的算力基础；需要注意，昇腾AI处理器的CPU性能往往较弱，大部分场景下用于硬件调度和数据管理。
+
 ## 在RK3588上部署
 
 RK3588是由瑞芯微开发的一款高性能音视频SoC，其搭载了8核ARM Cortex-A72/A53 CPU以及INT8算力6TOPS的NPU。
@@ -366,7 +384,9 @@ RK3588是由瑞芯微开发的一款高性能音视频SoC，其搭载了8核ARM 
 
 ![image-20241028005158175](./嵌入式机器学习6【SoC部署】.assets/image-20241028005158175.png)
 
-用户需要首先在PC上安装**RKNN-Toolkit2**工具，将训练好的模型转换成RKNN格式，并使用RKNN提供的C或Python API在板端部署推理。在板端，用户还需要移植**RKNN Runtime**软件包及NPU的内核驱动来调用NPU处理模型。即总体流程仍分为**模型转换-模型评估-板端部署**三阶段
+用户需要首先在PC上安装**RKNN-Toolkit2**工具，将训练好的模型转换成RKNN格式，并使用RKNN提供的C或Python API在板端部署推理。在板端，用户还需要移植**RKNN Runtime**软件包及NPU的内核驱动来调用NPU处理模型。即总体流程仍分为**模型转换-模型评估-板端部署**三阶段，流程细分如下图所示
+
+![image-20251020125422901](./嵌入式机器学习6【SoC部署】.assets/image-20251020125422901.png)
 
 ### 环境配置
 
@@ -399,20 +419,13 @@ git clone https://github.com/airockchip/rknn_model_zoo
 git clone https://github.com/airockchip/rknn-llm
 ```
 
-
-
-
-
 在配置前，可以通过指令
 
 ```shell
 dmesg | grep -i rknpu #查询RKNPU2驱动版本
-
 ```
 
-
-
-
+确认RKNPU2驱动软件版本
 
 ### 模型转换
 

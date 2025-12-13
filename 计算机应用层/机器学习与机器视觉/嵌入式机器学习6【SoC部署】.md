@@ -1,12 +1,24 @@
 # 在SoC上部署神经网络
 
-
+本篇文章将以模型训练-推理-量化-部署的阶段顺序，对当前SoC上部署神经网络算法的方案进行梳理
 
 ## 训练框架
 
 
 
+### PyTorch
+
+
+
 ## 推理引擎
+
+
+
+### PyTorch
+
+
+
+### OnnxRuntime
 
 
 
@@ -36,7 +48,11 @@ NVDLA支持使用TensorRT进行权重和算子量化、图优化、算子合并�
 
 ### 昇腾DaVinci
 
-以昇腾310、610、910等计算卡为代表的华为的**昇腾NPU**采用特定域优化的**达芬奇**（**DaVinvi**）架构，为神经网络优化。 昇腾AI处理器的计算核心主要由**AI Core**构成，包含三种基础计算资源：矩阵计算单元（Cube Unit）、向量计算单元（Vector Unit）和标量计算单元（Scalar Unit），分别负责执行张量（Tensor）、矢量（Vector）、标量（Scalar）计算。AI Core中的矩阵计算单元支持INT8和FP16的计算，向量计算单元支持FP16和FP32的计算。AI Core基本架构如下图所示
+以昇腾310、610、910等计算卡为代表的华为的**昇腾NPU**采用特定域优化的**达芬奇**（**DaVinvi**）架构，为神经网络优化。 
+
+> 昇腾310主要用于边缘端侧，着重于提供高能效比，极限算力水平较低；昇腾610主要用于车规和边缘服务器，提供更高的计算性能，保障可靠性；昇腾910主要用于服务器集群，提供大带宽、高算力支撑
+
+昇腾AI处理器的计算核心主要由**AI Core**构成，包含三种基础计算资源：矩阵计算单元（Cube Unit）、向量计算单元（Vector Unit）和标量计算单元（Scalar Unit），分别负责执行张量（Tensor）、矢量（Vector）、标量（Scalar）计算。AI Core中的矩阵计算单元支持INT8和FP16的计算，向量计算单元支持FP16和FP32的计算。AI Core基本架构如下图所示
 
 ![image-20241102193046923](./嵌入式机器学习6【SoC部署】.assets/image-20241102193046923.png)
 
@@ -373,6 +389,117 @@ DieShot如下
 ![image-20251103204959269](./嵌入式机器学习6【SoC部署】.assets/image-20251103204959269.png)
 
 其中AI Core+AI Vector是昇腾NPU的核心，也是执行AI计算的算力基础；需要注意，昇腾AI处理器的CPU性能往往较弱，大部分场景下用于硬件调度和数据管理。
+
+### 模型量化与转换
+
+
+
+### 模型部署
+
+
+
+### Ascend C
+
+昇腾系列NPU均支持Ascend C算子编程模型，类似英伟达的CUDA编程范式，它基于**SPMD**（Single Program Multiple Data），能够将数据拆分到多个计算核心上运行，让多个AI Core共享相同的指令代码，开发子仅需关注单核算子实现。
+
+AscendC编程的核心在于编写**核函数**（Kernel Function）。核函数是在NPU侧运行的代码，这和CUDA几乎一样，编写时的最大区别如下图所示：需要加入 `__aicore__` 表示核函数在设备侧AI Core上执行
+
+![image-20251210135834263](./嵌入式机器学习6【SoC部署】.assets/image-20251210135834263.png)
+
+核函数需要使用运算符 `<<<kernel_function_name>>>` 来调用，例如
+
+```c++
+kernel_name<<<blockDim, l2ctrl, stream>>>(argument list);
+```
+
+其中
+
+* **blockDim**：规定核函数将会在几个核上运行，每个核将被分配一个从0开始的逻辑ID（内置变量block_idx）
+* l2ctrl：保留参数
+* **stream**：描述了ACL Runtime所使用的任务队列，ACL程序通过stream来管理任务级并行
+
+ACL的调用实例如下
+
+```c++
+int32_t main(void)
+{
+    aclInit(nullptr); // ACL初始化
+    
+    // 申请管理资源
+    int32_t deviceId = 0;
+    aclrtSetDevice(deviceId);
+    aclrtStream stream = nullptr;
+    aclrtCreateStream(&stream);
+    
+    // 调用核函数
+    constexpr uint32_t blockDim = 8;
+    hello_world_kernel(blockDim, stream); // 执行任务
+    aclrtSynchronizeStream(stream); // 等待任务完成
+    
+    // 资源释放
+    aclrtDestroyStream(stream);
+    aclrtResetDevice(deviceId);
+    aclFinalize(); // ACL反初始化
+    return 0;
+}
+```
+
+一般Ascend C编程采用**流水线**范式，将算子核内的多个任务分成多个流水级，所有数据被存放在 `GlobalTensor` 和 `LocalTensor` 两种操作单元，通过**队列**（Queue）来完成任务间通信和同步，使用**逻辑位置**（TPosition）来表达各级别的存储，隐藏硬件架构，如下图所示
+
+![image-20251210142503946](./嵌入式机器学习6【SoC部署】.assets/image-20251210142503946.png)
+
+数据管理部分，任务间的数据传递使用到的内存和事件等资源由**Pipe**进行管理，临时变量通过 `TBuf` 来申请，但这样的内存空间只能参与计算，不能执行队列的入队出队操作。Pipe也可以通过 `AllocTensor` 和 `FreeTensor` 两个API来手动为 LocalTensor分配内存，这样获得的内存就可以对接到Queue，使用流程如下
+
+```c++
+TPipe pipe;
+Tque<TPosition::VECOUT, 2> que; //内存分配在VECOUT处
+int num = 4; //分配4块内存
+int len = 1024; //每块内存大小为1024B
+pipe.InitBuffer(que, num, len); //初始化资源管理Pipe
+
+LocalTensor<half> tensor1 = que.AllocTensor(); //手动分配内存
+que.FreeTensor<half>(Tensor1); //释放内存
+```
+
+Ascend C提供的基础API大致分为以下几种类型：
+
+* 计算类：分别调用Scalar、Vector、Cube三大AI计算单元的**标量计算**、**向量计算**和**矩阵计算**API
+* 数据搬运类：在Local Memory和Global Memory之间进行搬运的接口API
+* 内存管理类：用于在不同逻辑位置分配管理内存的接口API
+* 任务同步类：用于任务间通信和同步的Queue接口API
+
+此外，框架也封装了常用算法（比如Matmul、Softmax等）的高阶API可供使用（对标英伟达的cuDNN、cuBLAS库）
+
+一般来说，Ascend C可以通过两种方式进行开发：**Kernel直调**和**工程化算子开发**。Kernel直调开发主要用于测试算子功能，编写完核函数，直接通过固定的host程序调用执行即可，不需要受到CANN限制。工程化算子开发则作为标准的神经网络部署流程，首先手工编辑json格式的算子原型描述列表（实际上是以json格式存储的计算图），再使用CANN中提供的**msOpGen**工具生成自定义算子的代码工程，最后同时所有的算子tiling、核函数代码实现、host侧调度代码都需要按照规定的算子工程格式来实现，编译后才能上板运行。虽然步骤比较繁琐，但**工程化算子可以支持完整神经网络的部署**，而Kernel直调一般只能用于实现单个算子。
+
+> 常见编译指令为
+>
+> ```shell
+> msopgen gen -i <json描述文件> -c ai_core-Ascend910B3 -lan cpp -out <工程输出目录>
+> ```
+
+在工程化开发流程中，比较核心的部分就是算子Tiling。大多数情况下，Local Memory无法完全容纳算子的输入输出数据，每次都需要搬运部分数据，计算后搬出，再搬运下一部分输入数据，重复上述过程。这个数据切分、分块计算的流程被称为**Tiling**，每次搬运的数据块被称为**Tiling块**；根据算子中不同输入形状来确定Tiling块大小的算法被称为Tiling算法（策略）。因为Tiling算法中存在大量标量计算，这是NPU所不擅长的，所以实现Tiling算法的函数都定义在host侧，由CPU实现，叫做**Tiling函数**
+
+由于硬件限制，**AI Core中Unified Buffer上的数据存储空间必须保持32Byte对齐**，当数据不满足对齐时则需要向上取整；由于NPU与Global Memory交互时会产生访存开销，因此应该尽可能设计适合硬件的Tiling算法，并对Unified Buffer空间进行合理分配，减少Global Memory访存
+
+在切分数据时，通常会分为：
+
+* **核间**数据切分：需要根据实际输入尺寸大小和参与计算的核数来确定Tiling块的大小（传递**TOTAL_LENGTH**和**BLOCK_NUM**）
+* **核内**数据切分：需要根据每个核心所搬运数据的大小和Local Memory的总容量来确定每个核的数据需要切分成几块（传递**TILE_NUM**）
+
+![image-20251210215034986](./嵌入式机器学习6【SoC部署】.assets/image-20251210215034986.png)
+
+在完成上述编写后，可以通过下列四种方式来调用Ascend C自定义算子（即核函数）
+
+* C++单算子API：利用ACL的C++接口单独执行某个核函数
+
+    ![image-20251210222340298](./嵌入式机器学习6【SoC部署】.assets/image-20251210222340298.png)
+
+* Python单算子调用：与C++单算子API一致，只不过是提供python接口（基于Pybind11）。相对C++性能较低，适合调试
+
+* 算子入图：将多个算子组成完整的计算图（即加入.om模型进行推理），适合工程部署，但不方便调试
+
+* AI框架调用：将算子注册到PyTorch等AI框架，通过AI框架来调用算子
 
 ## 在RK3588上部署
 
